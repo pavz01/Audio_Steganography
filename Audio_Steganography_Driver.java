@@ -174,6 +174,22 @@ public class Audio_Steganography_Driver extends JPanel
 			if (encryptFile != null){
 				System.out.println("Open the .wav file: " + encryptFile
 						+ ".\n Then encrypt message, and inject into new .wav file.");
+				try {
+				    AudioInputStream stream;
+				    AudioFormat format;
+				    DataLine.Info info;
+				    Clip clip;
+
+				    stream = AudioSystem.getAudioInputStream(encryptFile);
+				    format = stream.getFormat();
+				    info = new DataLine.Info(Clip.class, format);
+				    clip = (Clip) AudioSystem.getLine(info);
+				    clip.open(stream);
+				    clip.start();
+				}
+				catch (Exception e) {
+				    System.out.println("Error: " + e.getMessage());
+				}
 			}
 			else {
 				System.out.println("Encrypt Error: You must select a file first.");
