@@ -22,6 +22,7 @@ import javax.sound.sampled.*;
  */
 public class Audio_Steganography_Driver extends JPanel
                                         implements ActionListener {
+	// GUI Components
 	JPanel encryptPanel, encryptSubPanel1, encryptSubPanel2, encryptSubPanel3, encryptSubPanel4, encryptSubPanel5;
 	JPanel decryptPanel, decryptSubPanel1, decryptSubPanel2, decryptSubPanel3, decryptSubPanel4, decryptSubPanel5;
 	JLabel encryptLabel, decryptLabel, encryptPasswordLabel, decryptPasswordLabel;
@@ -29,11 +30,24 @@ public class Audio_Steganography_Driver extends JPanel
 	JButton encryptPlayButton, encryptStopButton, decryptPlayButton, decryptStopButton;
 	JPasswordField encryptPassword, decryptPassword;
 	JTextArea encryptSecretMessage, decryptSecretMessage;
+	
+	// WAV elements
 	JFileChooser fc;
 	File encryptFile, decryptFile;
+    AudioInputStream encryptStream, decryptStream;
+    AudioFormat encryptFormat, decryptFormat;
+    DataLine.Info encryptInfo, decryptInfo;
+    Clip encryptClip, decryptClip;
+    String encryptPlayStatus, decryptPlayStatus;
 
 	public Audio_Steganography_Driver() {
-		fc = new JFileChooser();
+		// Set directory that Open File dialogue window will begin
+		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
+		
+		// Create and use a filter to only accept .wav files
+		FileNameExtensionFilter filter = new FileNameExtensionFilter(
+		        "WAV Files", "wav");
+		fc.setFileFilter(filter);
 		
 		// Create all panels
 		encryptPanel = new JPanel();     // All encrypt content will be here
@@ -178,6 +192,7 @@ public class Audio_Steganography_Driver extends JPanel
 		
 		if ( (eventSource == encryptFCButton) ||
 			 (eventSource == decryptFCButton) ) {
+			// Pops up an "Open File" file chooser dialog.
 			int returnVal = fc.showOpenDialog(Audio_Steganography_Driver.this);
 
 			if (returnVal == JFileChooser.APPROVE_OPTION) {
@@ -185,13 +200,33 @@ public class Audio_Steganography_Driver extends JPanel
 				
 				if (eventSource == encryptFCButton)
 				{
-					encryptFile = tempFile;
+					try {
+					    encryptFile = tempFile;
+					    encryptStream = AudioSystem.getAudioInputStream(encryptFile);
+					    encryptFormat = encryptStream.getFormat();
+					    encryptInfo = new DataLine.Info(Clip.class, encryptFormat);
+					    encryptClip = (Clip) AudioSystem.getLine(encryptInfo);
+					    encryptClip.open(encryptStream);
+					}
+					catch (Exception e) {
+						System.out.println("Encrypt Error: Could not initialize setup for chosen file.");
+					}
 					System.out.println("encryptFCButton");
 				}
 				
 				else
 				{
-					decryptFile = tempFile;
+					try {
+					    decryptFile = tempFile;
+					    decryptStream = AudioSystem.getAudioInputStream(decryptFile);
+					    decryptFormat = decryptStream.getFormat();
+					    decryptInfo = new DataLine.Info(Clip.class, decryptFormat);
+					    decryptClip = (Clip) AudioSystem.getLine(decryptInfo);
+					    decryptClip.open(decryptStream);
+					}
+					catch (Exception e) {
+						System.out.println("Decrypt Error: Could not initialize setup for chosen file.");
+					}
 					System.out.println("decryptFCButton");
 				}
 				
@@ -228,22 +263,15 @@ public class Audio_Steganography_Driver extends JPanel
 		
 		else if (eventSource == encryptPlayButton) {
 			if (encryptFile != null){
-				System.out.println("Play encrypt .wav file.");
-				try {
-				    AudioInputStream stream;
-				    AudioFormat format;
-				    DataLine.Info info;
-				    Clip clip;
-
-				    stream = AudioSystem.getAudioInputStream(encryptFile);
-				    format = stream.getFormat();
-				    info = new DataLine.Info(Clip.class, format);
-				    clip = (Clip) AudioSystem.getLine(info);
-				    clip.open(stream);
-				    clip.start();
-				}
-				catch (Exception e) {
-				    System.out.println("Error: " + e.getMessage());
+				if (encryptPlayStatus != "Playing") {
+					try {
+					    encryptClip.start();
+						encryptPlayStatus = "Playing";
+						System.out.println("Playing encrypt .wav file.");
+					}
+					catch (Exception e) {
+					    System.out.println("Error: " + e.getMessage());
+					}
 				}
 			}
 			else {
@@ -253,22 +281,15 @@ public class Audio_Steganography_Driver extends JPanel
 		
 		else if (eventSource == decryptPlayButton) {
 			if (decryptFile != null){
-				System.out.println("Play decrypt .wav file.");
-				try {
-				    AudioInputStream stream;
-				    AudioFormat format;
-				    DataLine.Info info;
-				    Clip clip;
-
-				    stream = AudioSystem.getAudioInputStream(decryptFile);
-				    format = stream.getFormat();
-				    info = new DataLine.Info(Clip.class, format);
-				    clip = (Clip) AudioSystem.getLine(info);
-				    clip.open(stream);
-				    clip.start();
-				}
-				catch (Exception e) {
-				    System.out.println("Error: " + e.getMessage());
+				if (decryptPlayStatus != "Playing") {
+					try {
+					    decryptClip.start();
+						decryptPlayStatus = "Playing";
+						System.out.println("Playing decrypt .wav file.");
+					}
+					catch (Exception e) {
+					    System.out.println("Error: " + e.getMessage());
+					}
 				}
 			}
 			else {
@@ -278,7 +299,16 @@ public class Audio_Steganography_Driver extends JPanel
 		
 		else if (eventSource == encryptStopButton) {
 			if (encryptFile != null){
-				System.out.println("Stop playing encrypt .wav file.");
+				if (encryptPlayStatus != "Stopped") {
+					try {
+					    encryptClip.stop();
+						encryptPlayStatus = "Stopped";
+						System.out.println("Stop playing encrypt .wav file.");
+					}
+					catch (Exception e) {
+					    System.out.println("Error: " + e.getMessage());
+					}
+				}
 			}
 			else {
 				System.out.println("Encrypt Error: You must select a file first.");
@@ -287,7 +317,16 @@ public class Audio_Steganography_Driver extends JPanel
 		
 		else if (eventSource == decryptStopButton) {
 			if (decryptFile != null){
-				System.out.println("Stop playing decrypt .wav file.");
+				if (decryptPlayStatus != "Stopped") {
+					try {
+					    decryptClip.stop();
+						decryptPlayStatus = "Stopped";
+						System.out.println("Stop playing decrypt .wav file.");
+					}
+					catch (Exception e) {
+					    System.out.println("Error: " + e.getMessage());
+					}
+				}
 			}
 			else {
 				System.out.println("Decrypt Error: You must select a file first.");
