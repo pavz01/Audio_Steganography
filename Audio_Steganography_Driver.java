@@ -62,6 +62,7 @@ public class Audio_Steganography_Driver extends JPanel
 		encryptJWav = new JWav();
 		decryptJWav = new JWav();
 		
+		// -- GUI SECTION --
 		// Create all panels
 		encryptPanel = new JPanel();     // All encrypt content will be here
 		encryptSubPanel1 = new JPanel(); // First subcontainer inside encryptPanel
@@ -228,6 +229,10 @@ public class Audio_Steganography_Driver extends JPanel
 					}
 					catch (Exception e) {
 						System.out.println("encryptFCButton Error: " + e.getMessage());
+						
+						// If there was an error initializing the WAV file, mark it
+						// as not valid.
+						encryptJWav.setWavFileToNotValid();
 					}
 				}
 				else
@@ -239,6 +244,10 @@ public class Audio_Steganography_Driver extends JPanel
 					}
 					catch (Exception e) {
 						System.out.println("decryptFCButton Error: " + e.getMessage());
+						
+						// If there was an error initializing the WAV file, mark it
+						// as not valid.
+						decryptJWav.setWavFileToNotValid();
 					}
 				}
 			}
@@ -255,12 +264,15 @@ public class Audio_Steganography_Driver extends JPanel
 			// message, and WAV file
 			if (guiEncryptHasValidPassword() && // TO-DO
 				guiEncryptHasValidMessage() && // TO-DO
-				encryptJWav.hasValidWavFile() ) { // TO-DO
+				encryptJWav.hasValidWavFile() ) {
 				// Encrypt the message
 				encryptJWav.encryptMessage("Stub for guiEncryptPassword", "Stub for guiEncryptMessage"); // TO-DO
 				
-				// Create a new WAV file with the secret message injected into it
-				encryptJWav.createWavFileAndInjectMessage(); // TO-DO
+				// Create a copy of the selected WAV file
+				JWav tempWav = new JWav(encryptJWav); // TO-DO
+				
+				// Insert the encrypted message into the copy WAV file
+				tempWav.injectEncryptedMessage(); // TO-DO
 			}
 		}
 		
@@ -269,7 +281,7 @@ public class Audio_Steganography_Driver extends JPanel
 		else if (eventSource == decryptRunButton) {
 			// Validate the user has provided a valid WAV file,
 			// and a password
-			if (decryptJWav.hasValidWavFile() && // TO-DO
+			if (decryptJWav.hasValidWavFile() &&
 				guiDecryptHasValidPassword()) { // TO-DO
 				// Decrypt the message using the user-provided password
 				decryptJWav.decryptMessage("Stub for guiDecryptPassword"); // TO-DO
@@ -279,10 +291,13 @@ public class Audio_Steganography_Driver extends JPanel
 			}
 		}
 
+		// Handle when the user wants to play the encrypt WAV file
 		else if (eventSource == encryptPlayButton) {
-			if (encryptJWav.hasValidWavFile()) { // TO-DO
+			// Validate if a valid WAV file has been provided
+			if (encryptJWav.hasValidWavFile()) {
+				// Play the audio file
 				try {
-					encryptJWav.play(); // TO-DO
+					encryptJWav.play();
 				}
 				catch (Exception e) {
 					System.out.println("encryptPlayButton Error: " + e.getMessage());
@@ -290,10 +305,13 @@ public class Audio_Steganography_Driver extends JPanel
 			}
 		}
 		
+		// Handle when the user wants to play the decrypt WAV file
 		else if (eventSource == decryptPlayButton) {
-			if (decryptJWav.hasValidWavFile()) { // TO-DO
+			// Validate if a valid WAV file has been provided
+			if (decryptJWav.hasValidWavFile()) {
+				// Play the audio file
 				try {
-					decryptJWav.play(); // TO-DO
+					decryptJWav.play();
 				}
 				catch (Exception e) {
 					System.out.println("decryptPlayButton Error: " + e.getMessage());
@@ -301,10 +319,13 @@ public class Audio_Steganography_Driver extends JPanel
 			}
 		}
 		
+		// Handle when the user wants to stop the encrypt WAV file
 		else if (eventSource == encryptStopButton) {
-			if (encryptJWav.hasValidWavFile()) { // TO-DO
+			// Validate if a valid WAV file has been provided
+			if (encryptJWav.hasValidWavFile()) {
+				// Stop the audio file
 				try {
-					encryptJWav.stop(); // TO-DO
+					encryptJWav.stop();
 				}
 				catch (Exception e) {
 					System.out.println("encryptStopButton Error: " + e.getMessage());
@@ -312,10 +333,13 @@ public class Audio_Steganography_Driver extends JPanel
 			}
 		}
 		
+		// Handle when the user wants to stop the decrypt WAV file
 		else if (eventSource == decryptStopButton) {
-			if (decryptJWav.hasValidWavFile()) { // TO-DO
+			// Validate if a valid WAV file has been provided
+			if (decryptJWav.hasValidWavFile()) {
+				// Stop the audio file
 				try {
-					decryptJWav.stop(); // TO-DO
+					decryptJWav.stop();
 				}
 				catch (Exception e) {
 					System.out.println("decryptStopButton Error: " + e.getMessage());
