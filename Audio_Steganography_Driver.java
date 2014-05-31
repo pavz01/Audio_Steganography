@@ -8,7 +8,6 @@ import javax.swing.*;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.*;
 import classes.JWav;
-import javax.sound.sampled.*;
 
 /**
  * @author Larcade
@@ -32,22 +31,36 @@ public class Audio_Steganography_Driver extends JPanel
 	JTextArea encryptSecretMessage, decryptSecretMessage;
 	
 	// WAV elements
-	JFileChooser fc;
-	File encryptFile, decryptFile;
-    AudioInputStream encryptStream, decryptStream;
-    AudioFormat encryptFormat, decryptFormat;
-    DataLine.Info encryptInfo, decryptInfo;
-    Clip encryptClip, decryptClip;
-    String encryptPlayStatus, decryptPlayStatus;
+	JWav encryptJWav, decryptJWav;
+	
+	// Will place "message" in decrypt's GUI message field
+	public void guiDecryptDisplayMessage(String message) {
+		System.out.println("Called guiDecryptDisplayMessage function.");
+		return;
+	}
+	
+	// Will validate encrypt's GUI message is valid
+	public Boolean guiEncryptHasValidMessage() {
+		System.out.println("Called guiEncryptHasValidMessage function.");
+		return true;
+	}
 
+	// Will validate encrypt's GUI password is valid
+	public Boolean guiEncryptHasValidPassword() {
+		System.out.println("Called guiEncryptHasValidPassword function.");
+		return true;
+	}
+
+	// Will validate decrypts GUI password is valid
+	public Boolean guiDecryptHasValidPassword() {
+		System.out.println("Called guiDecryptHasValidPassword function.");
+		return true;
+	}
+
+	// Constructor
 	public Audio_Steganography_Driver() {
-		// Set directory that Open File dialogue window will begin
-		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
-		
-		// Create and use a filter to only accept .wav files
-		FileNameExtensionFilter filter = new FileNameExtensionFilter(
-		        "WAV Files", "wav");
-		fc.setFileFilter(filter);
+		encryptJWav = new JWav();
+		decryptJWav = new JWav();
 		
 		// Create all panels
 		encryptPanel = new JPanel();     // All encrypt content will be here
@@ -186,150 +199,127 @@ public class Audio_Steganography_Driver extends JPanel
 		add(decryptPanel);
 	}
 
+	// Handle all user initiated events
 	public void actionPerformed(ActionEvent event) {
 		// Handle encrypt open file action.
 		Object eventSource = event.getSource();
 		
+		// Handle when the user wants to choose a file
 		if ( (eventSource == encryptFCButton) ||
 			 (eventSource == decryptFCButton) ) {
-			// Pops up an "Open File" file chooser dialog.
-			int returnVal = fc.showOpenDialog(Audio_Steganography_Driver.this);
+			// Pop open an "Open File" file chooser dialog.
+			int returnVal;
+			
+			if (eventSource == encryptFCButton) {
+				returnVal = encryptJWav.getJFileChooser().showOpenDialog(Audio_Steganography_Driver.this);
+			}
+			else {
+				returnVal = decryptJWav.getJFileChooser().showOpenDialog(Audio_Steganography_Driver.this);
+			}
 
+			// If a WAV file has been selected, initialize it.
 			if (returnVal == JFileChooser.APPROVE_OPTION) {
-				File tempFile = fc.getSelectedFile();
-				
 				if (eventSource == encryptFCButton)
 				{
+					System.out.println("encryptFCButton");
 					try {
-					    encryptFile = tempFile;
-					    encryptStream = AudioSystem.getAudioInputStream(encryptFile);
-					    encryptFormat = encryptStream.getFormat();
-					    encryptInfo = new DataLine.Info(Clip.class, encryptFormat);
-					    encryptClip = (Clip) AudioSystem.getLine(encryptInfo);
-					    encryptClip.open(encryptStream);
+						encryptJWav.initialize();
+						System.out.println("encryptJWav is initialized.");
 					}
 					catch (Exception e) {
-						System.out.println("Encrypt Error: Could not initialize setup for chosen file.");
+						System.out.println("encryptFCButton Error: " + e.getMessage());
 					}
-					System.out.println("encryptFCButton");
 				}
-				
 				else
 				{
+					System.out.println("decryptFCButton");
 					try {
-					    decryptFile = tempFile;
-					    decryptStream = AudioSystem.getAudioInputStream(decryptFile);
-					    decryptFormat = decryptStream.getFormat();
-					    decryptInfo = new DataLine.Info(Clip.class, decryptFormat);
-					    decryptClip = (Clip) AudioSystem.getLine(decryptInfo);
-					    decryptClip.open(decryptStream);
+						decryptJWav.initialize();
+						System.out.println("decryptJWav is initialized.");
 					}
 					catch (Exception e) {
-						System.out.println("Decrypt Error: Could not initialize setup for chosen file.");
+						System.out.println("decryptFCButton Error: " + e.getMessage());
 					}
-					System.out.println("decryptFCButton");
 				}
-				
-				// This is where a real application would open the file.
-				System.out.println("Opening: " + tempFile.getName() + "." + "\n");
-				
-				tempFile = null;
 			}
 			
 			else {
-				System.out.println("Open encrypt file command cancelled by user." + "\n");
+				System.out.println("Open file command cancelled by user.");
 			}
 		}
-		
+
+		// Handle when the user wants to create a new file that
+		// has a hidden, encrypted message
 		else if (eventSource == encryptRunButton) {
-			if (encryptFile != null){
-				System.out.println("Open the .wav file: " + encryptFile
-						+ ".\n Then encrypt message, and inject into new .wav file.");
-			}
-			else {
-				System.out.println("Encrypt Error: You must select a file first.");
+			// Validate the user has provided a valid password,
+			// message, and WAV file
+			if (guiEncryptHasValidPassword() && // TO-DO
+				guiEncryptHasValidMessage() && // TO-DO
+				encryptJWav.hasValidWavFile() ) { // TO-DO
+				// Encrypt the message
+				encryptJWav.encryptMessage("Stub for guiEncryptPassword", "Stub for guiEncryptMessage"); // TO-DO
+				
+				// Create a new WAV file with the secret message injected into it
+				encryptJWav.createWavFileAndInjectMessage(); // TO-DO
 			}
 		}
 		
+		// Handle when the user wants to obtain a hidden message
+		// from a WAV file that contains a hidden, encrypted message
 		else if (eventSource == decryptRunButton) {
-			if (decryptFile != null){
-				System.out.println("Open the .wav file: " + decryptFile
-						+ ".\n Then decrypt message, and display the hidden message.");
-			}
-			else {
-				System.out.println("Decrypt Error: You must select a file first.");
+			// Validate the user has provided a valid WAV file,
+			// and a password
+			if (decryptJWav.hasValidWavFile() && // TO-DO
+				guiDecryptHasValidPassword()) { // TO-DO
+				// Decrypt the message using the user-provided password
+				decryptJWav.decryptMessage("Stub for guiDecryptPassword"); // TO-DO
+				
+				// Display the result in the decrypt's GUI message area
+				guiDecryptDisplayMessage(decryptJWav.getMessage()); // TO-DO
 			}
 		}
-		
+
 		else if (eventSource == encryptPlayButton) {
-			if (encryptFile != null){
-				if (encryptPlayStatus != "Playing") {
-					try {
-					    encryptClip.start();
-						encryptPlayStatus = "Playing";
-						System.out.println("Playing encrypt .wav file.");
-					}
-					catch (Exception e) {
-					    System.out.println("Error: " + e.getMessage());
-					}
+			if (encryptJWav.hasValidWavFile()) { // TO-DO
+				try {
+					encryptJWav.play(); // TO-DO
 				}
-			}
-			else {
-				System.out.println("Encrypt Error: You must select a file first.");
+				catch (Exception e) {
+					System.out.println("encryptPlayButton Error: " + e.getMessage());
+				}
 			}
 		}
 		
 		else if (eventSource == decryptPlayButton) {
-			if (decryptFile != null){
-				if (decryptPlayStatus != "Playing") {
-					try {
-					    decryptClip.start();
-						decryptPlayStatus = "Playing";
-						System.out.println("Playing decrypt .wav file.");
-					}
-					catch (Exception e) {
-					    System.out.println("Error: " + e.getMessage());
-					}
+			if (decryptJWav.hasValidWavFile()) { // TO-DO
+				try {
+					decryptJWav.play(); // TO-DO
 				}
-			}
-			else {
-				System.out.println("Decrypt Error: You must select a file first.");
+				catch (Exception e) {
+					System.out.println("decryptPlayButton Error: " + e.getMessage());
+				}
 			}
 		}
 		
 		else if (eventSource == encryptStopButton) {
-			if (encryptFile != null){
-				if (encryptPlayStatus != "Stopped") {
-					try {
-					    encryptClip.stop();
-						encryptPlayStatus = "Stopped";
-						System.out.println("Stop playing encrypt .wav file.");
-					}
-					catch (Exception e) {
-					    System.out.println("Error: " + e.getMessage());
-					}
+			if (encryptJWav.hasValidWavFile()) { // TO-DO
+				try {
+					encryptJWav.stop(); // TO-DO
 				}
-			}
-			else {
-				System.out.println("Encrypt Error: You must select a file first.");
+				catch (Exception e) {
+					System.out.println("encryptStopButton Error: " + e.getMessage());
+				}
 			}
 		}
 		
 		else if (eventSource == decryptStopButton) {
-			if (decryptFile != null){
-				if (decryptPlayStatus != "Stopped") {
-					try {
-					    decryptClip.stop();
-						decryptPlayStatus = "Stopped";
-						System.out.println("Stop playing decrypt .wav file.");
-					}
-					catch (Exception e) {
-					    System.out.println("Error: " + e.getMessage());
-					}
+			if (decryptJWav.hasValidWavFile()) { // TO-DO
+				try {
+					decryptJWav.stop(); // TO-DO
 				}
-			}
-			else {
-				System.out.println("Decrypt Error: You must select a file first.");
+				catch (Exception e) {
+					System.out.println("decryptStopButton Error: " + e.getMessage());
+				}
 			}
 		}
 	}
@@ -358,8 +348,6 @@ public class Audio_Steganography_Driver extends JPanel
 		 * Create the GUI and show it. For thread safety, this method should be
 		 * invoked from the event-dispatching thread.
 		 */
-		JWav wav = new JWav("this will be a filepath");
-
 		// Schedule a job for the event-dispatching thread:
 		// creating and showing this application's GUI.
 		SwingUtilities.invokeLater(new Runnable() {
