@@ -1,13 +1,11 @@
 /*
- * 
+ * Imports
  */
-import java.io.*;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
-import javax.swing.SwingUtilities;
-import javax.swing.filechooser.*;
 import classes.JWav;
+import components.LimitedPlainDocument;
 
 /**
  * @author Larcade
@@ -29,32 +27,70 @@ public class Audio_Steganography_Driver extends JPanel
 	JButton encryptPlayButton, encryptStopButton, decryptPlayButton, decryptStopButton;
 	JPasswordField encryptPassword, decryptPassword;
 	JTextArea encryptSecretMessage, decryptSecretMessage;
+	static final int MESSAGE_MAX_CHARACTERS = 300;
+	static final int PASSWORD_MAX_CHARACTERS = 10;
 	
 	// WAV elements
 	JWav encryptJWav, decryptJWav;
 	
+	// ------ HELPER FUNCTIONS ------
+	// Function: isNullOrWhitespace
+	// Description: Will return TRUE if "theString" is either null or only whitespace
+	public Boolean isNullOrWhitespace (String theString) {
+		return ( (theString == null) ||
+				 (theString.isEmpty()) ||
+				 (theString.trim().length() <= 0) );
+	}
+
+	// ------ OTHER FUNCTIONS ------
 	// Will place "message" in decrypt's GUI message field
-	public void guiDecryptDisplayMessage(String message) {
+	public void guiDecryptDisplayMessage(String message) throws Exception {
 		System.out.println("Called guiDecryptDisplayMessage function.");
-		return;
+		
+		if (isNullOrWhitespace(message)) {
+			throw new Exception("Error: 'message' is empty.");
+		}
+		
+		// place message in "decryptSecretMessage"
+		decryptSecretMessage.setText(message);
 	}
 	
 	// Will validate encrypt's GUI message is valid
 	public Boolean guiEncryptHasValidMessage() {
 		System.out.println("Called guiEncryptHasValidMessage function.");
-		return true;
+		
+		// Validate encrypt's message contains content
+		if (encryptSecretMessage.getDocument().getLength() > 0) {
+			System.out.println("Has valid message.");
+			return true;
+		}
+		
+		System.out.println("Does not have valid message.");
+		return false;
 	}
 
 	// Will validate encrypt's GUI password is valid
 	public Boolean guiEncryptHasValidPassword() {
-		System.out.println("Called guiEncryptHasValidPassword function.");
-		return true;
+		// Validate encrypt's message contains content
+		if (encryptPassword.getDocument().getLength() > 0) {
+			System.out.println("Has valid password.");
+			return true;
+		}
+		
+		System.out.println("Does not have valid password.");
+		return false;
 	}
 
-	// Will validate decrypts GUI password is valid
+	// Will validate decrypt's GUI password is valid
 	public Boolean guiDecryptHasValidPassword() {
-		System.out.println("Called guiDecryptHasValidPassword function.");
-		return true;
+		// Validate encrypt's message contains content
+		if (decryptPassword.getDocument().getLength() > 0) {
+			System.out.println("Has valid password.");
+			return true;
+		}
+		
+		System.out.println("Does not have valid password.");
+		return false;
 	}
 
 	// Constructor
@@ -106,6 +142,7 @@ public class Audio_Steganography_Driver extends JPanel
 		
 		// Create Password Field
 		encryptPassword = new JPasswordField(10); // password field
+		encryptPassword.setDocument(new LimitedPlainDocument(PASSWORD_MAX_CHARACTERS));
 
 		// Create "Make Secret Message WAV File" button
 		encryptRunButton = new JButton("<html><b>Make Secret Message WAV File</b></html>"); // GO! button
@@ -115,7 +152,8 @@ public class Audio_Steganography_Driver extends JPanel
 		encryptSecretMessage = new JTextArea(6, 50); // Large enough for 300 characters to be displayed.
 		encryptSecretMessage.setLineWrap(true);
 		encryptSecretMessage.setWrapStyleWord(true);
-
+		encryptSecretMessage.setDocument(new LimitedPlainDocument(MESSAGE_MAX_CHARACTERS));
+		
 		// Add content to sub-panels
 		encryptSubPanel1.add(encryptLabel);
 
@@ -165,6 +203,7 @@ public class Audio_Steganography_Driver extends JPanel
 		
 		// Create Password Field
 		decryptPassword = new JPasswordField(10); // password field
+		decryptPassword.setDocument(new LimitedPlainDocument(PASSWORD_MAX_CHARACTERS)); // Limit to 10 characters
 
 		// Create Secret Message WAV File
 		decryptRunButton = new JButton("<html><b>Decrypt Secret Message in WAV File</b></html>"); // GO! button
@@ -174,6 +213,9 @@ public class Audio_Steganography_Driver extends JPanel
 		decryptSecretMessage = new JTextArea(6, 50); // Large enough for 300 characters to be displayed.
 		decryptSecretMessage.setLineWrap(true);
 		decryptSecretMessage.setWrapStyleWord(true);
+		decryptSecretMessage.setEditable(false);
+		decryptSecretMessage.setBackground(Color.LIGHT_GRAY);
+		decryptSecretMessage.setDocument(new LimitedPlainDocument(MESSAGE_MAX_CHARACTERS));
 
 		// Add content to sub-panels
 		decryptSubPanel1.add(decryptLabel);
@@ -228,7 +270,7 @@ public class Audio_Steganography_Driver extends JPanel
 						System.out.println("encryptJWav is initialized.");
 					}
 					catch (Exception e) {
-						System.out.println("encryptFCButton Error: " + e.getMessage());
+						System.out.println("encryptFCButton " + e.getMessage());
 						
 						// If there was an error initializing the WAV file, mark it
 						// as not valid.
@@ -243,7 +285,7 @@ public class Audio_Steganography_Driver extends JPanel
 						System.out.println("decryptJWav is initialized.");
 					}
 					catch (Exception e) {
-						System.out.println("decryptFCButton Error: " + e.getMessage());
+						System.out.println("decryptFCButton " + e.getMessage());
 						
 						// If there was an error initializing the WAV file, mark it
 						// as not valid.
@@ -262,17 +304,27 @@ public class Audio_Steganography_Driver extends JPanel
 		else if (eventSource == encryptRunButton) {
 			// Validate the user has provided a valid password,
 			// message, and WAV file
-			if (guiEncryptHasValidPassword() && // TO-DO
-				guiEncryptHasValidMessage() && // TO-DO
+			if (guiEncryptHasValidPassword() &&
+				guiEncryptHasValidMessage() &&
 				encryptJWav.hasValidWavFile() ) {
+				System.out.println("Hurray, has valid password/message/wav file.");
+				
 				// Encrypt the message
 				encryptJWav.encryptMessage("Stub for guiEncryptPassword", "Stub for guiEncryptMessage"); // TO-DO
 				
-				// Create a copy of the selected WAV file
-				JWav tempWav = new JWav(encryptJWav); // TO-DO
-				
-				// Insert the encrypted message into the copy WAV file
-				tempWav.injectEncryptedMessage(); // TO-DO
+				try {
+					// Try to create a copy of the selected WAV file
+					JWav tempWav = new JWav(encryptJWav);
+					
+					// Insert the encrypted message into the copy WAV file
+					tempWav.injectEncryptedMessage(); // TO-DO
+				}
+				catch (Exception e) {
+					System.out.println("encryptRunButton Error: " + e.getMessage());
+				}
+			}
+			else {
+				System.out.println("encryptRunButton Error: Fail! Password/Message/wav file was not valid.");
 			}
 		}
 		
@@ -281,13 +333,25 @@ public class Audio_Steganography_Driver extends JPanel
 		else if (eventSource == decryptRunButton) {
 			// Validate the user has provided a valid WAV file,
 			// and a password
+			System.out.println("decryptRunButton");
+			
 			if (decryptJWav.hasValidWavFile() &&
-				guiDecryptHasValidPassword()) { // TO-DO
-				// Decrypt the message using the user-provided password
-				decryptJWav.decryptMessage("Stub for guiDecryptPassword"); // TO-DO
+				guiDecryptHasValidPassword() ) {
+				System.out.println("Hurray, has valid wav/password file.");
 				
-				// Display the result in the decrypt's GUI message area
-				guiDecryptDisplayMessage(decryptJWav.getMessage()); // TO-DO
+				try {
+					// Decrypt the message using the user-provided password
+					decryptJWav.decryptMessage("Stub for guiDecryptPassword"); // TO-DO
+					
+					// Display the result in the decrypt's GUI message area
+					guiDecryptDisplayMessage(decryptJWav.getMessage());
+				}
+				catch (Exception e) {
+					System.out.println("decryptRunButton " + e.getMessage());
+				}
+			}
+			else {
+				System.out.println("decryptRunButton Error: Fail! wav file/password was not valid.");
 			}
 		}
 
@@ -300,8 +364,11 @@ public class Audio_Steganography_Driver extends JPanel
 					encryptJWav.play();
 				}
 				catch (Exception e) {
-					System.out.println("encryptPlayButton Error: " + e.getMessage());
+					System.out.println("encryptPlayButton " + e.getMessage());
 				}
+			}
+			else {
+				System.out.println("encryptPlayButton Error: wav file is not valid.");
 			}
 		}
 		
@@ -314,8 +381,11 @@ public class Audio_Steganography_Driver extends JPanel
 					decryptJWav.play();
 				}
 				catch (Exception e) {
-					System.out.println("decryptPlayButton Error: " + e.getMessage());
+					System.out.println("decryptPlayButton " + e.getMessage());
 				}
+			}
+			else {
+				System.out.println("decryptPlayButton Error: wav file is not valid.");
 			}
 		}
 		
@@ -328,8 +398,11 @@ public class Audio_Steganography_Driver extends JPanel
 					encryptJWav.stop();
 				}
 				catch (Exception e) {
-					System.out.println("encryptStopButton Error: " + e.getMessage());
+					System.out.println("encryptStopButton " + e.getMessage());
 				}
+			}
+			else {
+				System.out.println("encryptStopButton Error: wav file is not valid.");
 			}
 		}
 		
@@ -342,8 +415,11 @@ public class Audio_Steganography_Driver extends JPanel
 					decryptJWav.stop();
 				}
 				catch (Exception e) {
-					System.out.println("decryptStopButton Error: " + e.getMessage());
+					System.out.println("decryptStopButton " + e.getMessage());
 				}
+			}
+			else {
+				System.out.println("decryptStopButton Error: wav file is not valid.");
 			}
 		}
 	}
