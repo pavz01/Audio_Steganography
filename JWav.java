@@ -13,7 +13,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.sound.sampled.*;
 
 /**
- * @author Larcade
+ * @author Cory Larcade
  * Description: JWav is a class that will read, modify, and write .wav files.
  *              It will provide means to inject secret encrypted messages into
  *              new .wav files. It will also provide means to decrypt and display
@@ -22,6 +22,7 @@ import javax.sound.sampled.*;
  *              a secret message into a new .wav file.
  */
 public class JWav {
+	// ------ MEMBER VARIABLES ------
 	private JFileChooser fc;
 	private File file;
 	
@@ -47,6 +48,7 @@ public class JWav {
 	private Boolean validWavFile;
 	private Boolean hasInjectedMessage;
 	
+	// ------ CONSTRUCTORS ------
 	// Constructor: JWav()
 	public JWav () {
 		// Set directory that Open File dialogue window will begin
@@ -57,52 +59,23 @@ public class JWav {
 		        "WAV Files", "wav");
 		fc.setFileFilter(filter);
 		validWavFile = false;
+
+		// Initialize "hasInjectedMessage" to TRUE or FALSE
 		checkForInjectedMessage();
 	}
 
-	// Copy Constructor: Jwav(JWav original)
-	public JWav (JWav originalJWav) {
+	// Copy Constructor: JWav(JWav original)
+	public JWav (JWav originalJWav) throws Exception {
 		System.out.println("Stub for JWav copy constructor.");
-	}
 
-	// Function: setWavFileToNotValid
-	// Description: A setter function to the "validWavFile" to false
-	public void setWavFileToNotValid() {
-		validWavFile = false;
-	}
-	
-	// Function: getJFileChooser
-	// Description: A getter function that returns "fc"
-	public JFileChooser getJFileChooser () {
-		return fc;
-	}
-	
-	// Function: getFile
-	// Description: A getter function that returns the selected file
-	public File getFile() {
-		return fc.getSelectedFile();
-	}
-	
-	// Function: getMessage
-	// Description: A getter function that returns "message"
-	public String getMessage () {
-		return message;
-	}
-	
-	// Function: displayWavFileInfo
-	// Description: Will display useful information about the WAV file.
-	//              Useful for debugging purposes.
-	public void displayWavFileInfo() {
-		System.out.println("Audio frame length: " + audioClip.getFrameLength());
-		System.out.println("Audio frame position: " + audioClip.getFramePosition());
-	}
+		file = originalJWav.getFile();
 
-	// Function: initialize
-	// Description: Will use the user-provided WAV file to setup
-	//              being able to process and use the WAV file.
-	public void initialize () throws Exception {
-		file = fc.getSelectedFile();
+		if (!file.canExecute()) {
+			throw new Exception("Error: File either does not exist or can not execute");
+		}
+		
 		audioStream = AudioSystem.getAudioInputStream(file);
+		
 		audioFormat = audioStream.getFormat();
 		audioInfo = new DataLine.Info(Clip.class, audioFormat);
 		audioClip = (Clip) AudioSystem.getLine(audioInfo);
@@ -111,11 +84,98 @@ public class JWav {
 		// the WAV file is valid if it has reached this point
 		validWavFile = true;
 	}
+
+	// ------ SETTERS ------
+	// Function: setWavFileToNotValid
+	// Description: A setter function to the "validWavFile" to false
+	public void setWavFileToNotValid() {
+		validWavFile = false;
+	}
+	
+	// ------ GETTERS ------
+	// Function: getJFileChooser
+	// Description: A getter function that returns "fc"
+	public JFileChooser getJFileChooser () {
+		return fc;
+	}
+	
+	// Function: getFile
+	// Description: A getter function that returns the selected file
+	public File getFileFromGUI() {
+		return fc.getSelectedFile();
+	}
+	
+	// Function: getMessage
+	// Description: Returns "message"
+	public String getMessage () throws Exception {
+		// For unit testing purposes
+		message = "This is a testing message!"; // DELETE LATER
+		
+		// Valid "message" has content
+		if (isNullOrWhitespace(message)) {
+			throw new Exception("Error: 'message' variable cannot be null/empty/all whitespace.");
+		}
+		
+		return message;
+	}
 	
 	// Function: getFileName
 	// Description: Returns the name of the selected WAV file
-	public String getFileName () {
-		return file.getName();
+	public String getFileName () throws Exception {
+		if (file.exists()) {
+			return file.getName();
+		}
+		
+		throw new Exception("Error: file does not exist.");
+	}
+	
+	// Function: getFile
+	// Description: Returns the file of the selected WAV file
+	public File getFile () throws Exception {
+		if (file.canExecute()) {
+			return file;
+		}
+		
+		throw new Exception("Error: File either does not exist or cannot execute.");
+	}
+	
+	// ------ DEBUG FUNCTIONS ------
+	// Function: displayWavFileInfo
+	// Description: Will display useful information about the WAV file.
+	//              Useful for debugging purposes.
+	public void displayWavFileInfo() {
+		System.out.println("Audio frame length: " + audioClip.getFrameLength());
+		System.out.println("Audio frame position: " + audioClip.getFramePosition());
+	}
+	
+	// ------ HELPER FUNCTIONS ------
+	// Function: isNullOrWhitespace
+	// Description: Will return TRUE if "theString" is either null or only whitespace
+	public Boolean isNullOrWhitespace (String theString) {
+		return ( (theString == null) ||
+				 (theString.isEmpty()) ||
+				 (theString.trim().length() <= 0) );
+	}
+
+	// ------ OTHER FUNCTIONS ------
+	// Function: initialize
+	// Description: Will use the user-provided WAV file to setup
+	//              being able to process and use the WAV file.
+	public void initialize () throws Exception {
+		file = fc.getSelectedFile();
+		
+		if (!file.canExecute()) {
+			throw new Exception("Error: File either does not exist or can not execute");
+		}
+		
+		audioStream = AudioSystem.getAudioInputStream(file);
+		audioFormat = audioStream.getFormat();
+		audioInfo = new DataLine.Info(Clip.class, audioFormat);
+		audioClip = (Clip) AudioSystem.getLine(audioInfo);
+		audioClip.open(audioStream);
+		
+		// the WAV file is valid if it has reached this point
+		validWavFile = true;
 	}
 	
 	// Function: encryptMessage
@@ -186,7 +246,7 @@ public class JWav {
 	// Function: checkforInjectedMessage
 	// Description: Will check the WAV file's data and check if it
 	//              contains an injected message. Then it will set
-	//              "hasInjectedMessage" to true or false.
+	//              "hasInjectedMessage" to TRUE or FALSE.
 	public void checkForInjectedMessage () {
 		System.out.println("Called hasValidWavFile function.");
 	}
