@@ -3,7 +3,15 @@
  */
 package classes;
 
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.Clip;
@@ -24,29 +32,23 @@ import javax.sound.sampled.*;
 public class JWav {
 	// ------ MEMBER VARIABLES ------
 	private JFileChooser fc;
+	private WavHeader wavHeader;
+	private WavFormatChunk wavFormat;
+	private WavDataChunk wavData;
 	private File file;
+	private String message;
+	private byte[] allWavData;
+	private Boolean validWavFile;
+	private Boolean hasInjectedMessage;
 	
-	// AudioInputStream contains the following:
-	// 1) The format of the audio data in the stream (format)
-	// 2) The stream's length in sample frames (frameLength)
-	// 3) The current position in the stream in sample frames (framePos)
-	// 4) The size of each frame, in bytes (frameSize)
+	private InputStream inStream;
+	private BufferedInputStream buffInStream;
+	
 	private AudioInputStream audioStream;
-
-	// AudioFormat contains the following:
-	// 1) Big Endian or not (bigEndian)
-	// 2) # of channels (channels)
-	// 3) the type of audio encoding used (encoding)
-	// 4) # of frames per second (frameRate)
-	// 5) # of bytes in each frame (frameSize)
-	// 6) # of samples per second (sampleRate)
-	// 7) # of bits in each sample (sampleSizeInBits)
 	private AudioFormat audioFormat;
 	private DataLine.Info audioInfo;
 	private Clip audioClip;
-	private String message;
-	private Boolean validWavFile;
-	private Boolean hasInjectedMessage;
+	
 	
 	// ------ CONSTRUCTORS ------
 	// Constructor: JWav()
@@ -65,8 +67,11 @@ public class JWav {
 	}
 
 	// Copy Constructor: JWav(JWav original)
+	// TO-DO: May need updating. Compare to changes made to initialize() and fit accordingly
 	public JWav (JWav originalJWav) throws Exception {
 		System.out.println("Stub for JWav copy constructor.");
+		
+		fc = originalJWav.getJFileChooser();
 
 		file = originalJWav.getFile();
 
@@ -74,8 +79,9 @@ public class JWav {
 			throw new Exception("Error: File either does not exist or can not execute");
 		}
 		
-		audioStream = AudioSystem.getAudioInputStream(file);
-		
+		inStream = new FileInputStream(file);
+		buffInStream = new BufferedInputStream(inStream);
+		audioStream = AudioSystem.getAudioInputStream(buffInStream);
 		audioFormat = audioStream.getFormat();
 		audioInfo = new DataLine.Info(Clip.class, audioFormat);
 		audioClip = (Clip) AudioSystem.getLine(audioInfo);
@@ -158,16 +164,70 @@ public class JWav {
 	}
 
 	// ------ OTHER FUNCTIONS ------
+	// Function: saveFile
+	// Description: Will either overwrite a WAV file if the file exists, or
+	//              will create a new WAV file if the file doesn't exist.
+	//              The file will be an exact copy of the WAV file that is
+	//              referred to in the "file" member variable.
+	public void saveFile() throws Exception {
+		System.out.println("Called saveFile()");
+		
+		// Grab the file the user selected/input to save to
+		File destFile = fc.getSelectedFile();
+		
+		System.out.print("File ");
+		
+		// Overwrite the selected WAV file
+		if (destFile.exists()) {
+			System.out.println(" exists.");
+			System.out.println("Overwriting file.");
+			Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			System.out.println("File overwritten.");
+		}
+		// Create a new WAV file
+		else {
+			System.out.println(" does not exist.");
+			System.out.println("Looks like we're going to create this new file.");
+			Files.copy(file.toPath(), destFile.toPath());
+			System.out.println("File created.");
+		}
+	}
+	
 	// Function: initialize
 	// Description: Will use the user-provided WAV file to setup
 	//              being able to process and use the WAV file.
 	public void initialize () throws Exception {
+		// Get the file
 		file = fc.getSelectedFile();
 		
+		// Make sure we can work with the file
 		if (!file.canExecute()) {
 			throw new Exception("Error: File either does not exist or can not execute");
 		}
+	
+		// Prepare to read the WAV file's data
+		inStream = new FileInputStream(file);
+		buffInStream = new BufferedInputStream(inStream);
 		
+		// Copy the file's data into a byte array
+		int availableBytes = buffInStream.available();
+		if (availableBytes > 0) {
+			allWavData = new byte[availableBytes];
+			int read = 0;
+			while (availableBytes > 0) {
+				read = buffInStream.read(allWavData, read, availableBytes);
+				availableBytes = buffInStream.available();
+			}
+		}
+		else {
+			buffInStream.close();
+			throw new Exception("Error: Couldn't copy WAV file's data into array.");
+		}
+			
+		// After copying the data, close the current stream.
+		buffInStream.close();
+			
+		// Setup the necessary items so the user can interact with the WAV file
 		audioStream = AudioSystem.getAudioInputStream(file);
 		audioFormat = audioStream.getFormat();
 		audioInfo = new DataLine.Info(Clip.class, audioFormat);
@@ -176,14 +236,27 @@ public class JWav {
 		
 		// the WAV file is valid if it has reached this point
 		validWavFile = true;
+		
+		// Break the WAV's data into it's corresponding parts:
+		//      Header, Format, Data.
+		// Will be useful later for manipulating the data and injecting it into
+		// a new WAV file.
+		wavHeader = new WavHeader();
+		wavFormat = new WavFormatChunk(); // TO-DO
+		wavData = new WavDataChunk(); // TO-DO
 	}
 	
 	// Function: encryptMessage
 	// Description: Will use the user-provided password and encrypt the
 	//              user-provided message.
 	// TO-DO
-	public void encryptMessage (String guiPassword, String guiMessage) {
+	public void encryptMessage (char[] guiPassword, String guiMessage) {
 		System.out.println("Called encryptMessage function.");
+/*
+//		System.out.println("encryptMessage: Password = " + guiPassword.toString());
+		char [] correctPass = new char[] {'a', 'a'};
+		System.out.println("encryptMessage: Message = " + guiMessage);
+*/
 	}
 	
 	// Function: injectEncryptedMessage
@@ -200,8 +273,18 @@ public class JWav {
 	//              password the user provided to decrypt the message
 	//              whether it is the right password or not.
 	// TO-DO
-	public void decryptMessage (String password) {
+	public void decryptMessage (char [] guiPassword) {
 		System.out.println("Called decryptMessage function.");
+/*
+		// This should actually be extracted from the WAV file
+		char [] correctPassword = new char [] {'a', 'a'};
+
+		if (Arrays.equals(guiPassword, correctPassword)) {
+		    System.out.println("Password is correct");
+		} else {
+		    System.out.println("Incorrect password");
+		}
+*/
 	}
 	
 	// Function: hasValidWavFile
@@ -249,5 +332,89 @@ public class JWav {
 	//              "hasInjectedMessage" to TRUE or FALSE.
 	public void checkForInjectedMessage () {
 		System.out.println("Called hasValidWavFile function.");
+	}
+	
+	// ------ INNER CLASSES ------
+	// Class: WavHeader
+	// Description: Will contain the WAV file's header info.
+	private class WavHeader {
+		// ------ MEMBER VARIABLES ------
+		private byte[] chunkID; // Should be "RIFF"
+		private Integer chunkSize;
+		private byte[] format;
+		
+		// ------ CONSTRUCTORS ------
+		// Constructor: WavHeader()
+		public WavHeader () {
+			try {
+				// Grab the chunkID. Should be "RIFF"
+				System.out.println("WavHeader Constructor");
+				chunkID = new byte[4];
+				for (int i = 0; i < 4; i++) {
+					chunkID[i] = allWavData[i];
+				}
+				System.out.println("chunkID: " + new String(chunkID, "UTF-8"));
+
+				// Grab the size of the WAV file
+				byte[] tempSize = new byte[4];
+				for (int i = 0; i < 4; i++) {
+					tempSize[i] = allWavData[i + 4];
+				}
+				ByteBuffer bb = ByteBuffer.wrap(tempSize);
+				bb.order(ByteOrder.LITTLE_ENDIAN);
+				chunkSize = bb.getInt();
+				System.out.println("chunkSize: " + chunkSize);
+				
+				// Grab the format of the file. Should be "WAVE"
+				format = new byte[4];
+				for (int i = 0; i < 4; i++) {
+					format[i] = allWavData[i + 8];
+				}
+				System.out.println("format: " + new String(format, "UTF-8"));
+			}
+			catch (Exception e) {
+				System.out.println("WavHeader Error: " + e.getMessage());
+			}
+		}
+		
+		public void display () {
+			try {
+				System.out.println("HEADER CHUNK CONTENTS:");
+				System.out.println("chunkID: " + new String(chunkID, "UTF-8"));
+				System.out.println("chunkSize: " + chunkSize);
+				System.out.println("format: " + new String(format, "UTF-8"));
+			}
+			catch (Exception e) {
+				System.out.println("WavHeader.display Error: " + e.getMessage());
+			}
+		}
+	}
+	
+	// Class: WavFormatChunk
+	// Description: Will contain the WAV file's format info.
+	private class WavFormatChunk {
+		// ------ MEMBER VARIABLES ------
+		// TO-DO
+		
+		// ------ CONSTRUCTORS ------
+		// Constructor: WavFormatChunk()
+		// TO-DO
+		public WavFormatChunk () {
+			System.out.println("WavFormatChunk Constructor");
+		}
+	}
+	
+	// Class: WavDataChunk
+	// Description: Will contain the WAV file's data info.
+	private class WavDataChunk {
+		// ------ MEMBER VARIABLES ------
+		// TO-DO
+		
+		// ------ CONSTRUCTORS ------
+		// Constructor: WavDataChunk()
+		// TO-DO
+		public WavDataChunk () {
+			System.out.println("WavDataChunk Constructor");
+		}
 	}
 }
