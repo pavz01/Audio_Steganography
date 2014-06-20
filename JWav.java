@@ -5,6 +5,7 @@ package classes;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -43,7 +44,6 @@ public class JWav {
 	
 	private InputStream inStream;
 	private BufferedInputStream buffInStream;
-	
 	private AudioInputStream audioStream;
 	private AudioFormat audioFormat;
 	private DataLine.Info audioInfo;
@@ -60,6 +60,7 @@ public class JWav {
 		FileNameExtensionFilter filter = new FileNameExtensionFilter(
 		        "WAV Files", "wav");
 		fc.setFileFilter(filter);
+		fc.setAcceptAllFileFilterUsed(false);
 		validWavFile = false;
 
 		// Initialize "hasInjectedMessage" to TRUE or FALSE
@@ -71,14 +72,23 @@ public class JWav {
 	public JWav (JWav originalJWav) throws Exception {
 		System.out.println("Stub for JWav copy constructor.");
 		
-		fc = originalJWav.getJFileChooser();
-
 		file = originalJWav.getFile();
-
+		
 		if (!file.canExecute()) {
 			throw new Exception("Error: File either does not exist or can not execute");
 		}
 		
+		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
+		
+		// Create and use a filter to only accept .wav files
+		FileNameExtensionFilter filter = new FileNameExtensionFilter(
+		        "WAV Files", "wav");
+		fc.setFileFilter(filter);
+		fc.setAcceptAllFileFilterUsed(false);
+		
+//		allWavData = originalJWav.getAllWavData();
+		
+/*
 		inStream = new FileInputStream(file);
 		buffInStream = new BufferedInputStream(inStream);
 		audioStream = AudioSystem.getAudioInputStream(buffInStream);
@@ -86,8 +96,9 @@ public class JWav {
 		audioInfo = new DataLine.Info(Clip.class, audioFormat);
 		audioClip = (Clip) AudioSystem.getLine(audioInfo);
 		audioClip.open(audioStream);
+*/		
 		
-		// the WAV file is valid if it has reached this point
+		// the WAV file has already been validated for it to be copying
 		validWavFile = true;
 	}
 
@@ -99,6 +110,12 @@ public class JWav {
 	}
 	
 	// ------ GETTERS ------
+	// Function: getAllWavData
+	// Description: A getter function that returns "allWavData"
+	public byte[] getAllWavData () {
+		return allWavData;
+	}
+	
 	// Function: getJFileChooser
 	// Description: A getter function that returns "fc"
 	public JFileChooser getJFileChooser () {
@@ -164,47 +181,29 @@ public class JWav {
 	}
 
 	// ------ OTHER FUNCTIONS ------
-	// Function: saveFile
-	// Description: Will either overwrite a WAV file if the file exists, or
-	//              will create a new WAV file if the file doesn't exist.
-	//              The file will be an exact copy of the WAV file that is
-	//              referred to in the "file" member variable.
-	public void saveFile() throws Exception {
-		System.out.println("Called saveFile()");
-		
-		// Grab the file the user selected/input to save to
-		File destFile = fc.getSelectedFile();
-		
-		System.out.print("File ");
-		
-		// Overwrite the selected WAV file
-		if (destFile.exists()) {
-			System.out.println(" exists.");
-			System.out.println("Overwriting file.");
-			Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-			System.out.println("File overwritten.");
+	// Function: isUsingAudioResources
+	// Description: Returns if the JWav is currently using audio resources
+	public Boolean isUsingAudioResources() {
+		if ( (audioClip != null) &&
+			 (audioClip.isOpen()) ) {
+			return true;
 		}
-		// Create a new WAV file
-		else {
-			System.out.println(" does not exist.");
-			System.out.println("Looks like we're going to create this new file.");
-			Files.copy(file.toPath(), destFile.toPath());
-			System.out.println("File created.");
-		}
+		
+		return false;
 	}
 	
-	// Function: initialize
-	// Description: Will use the user-provided WAV file to setup
-	//              being able to process and use the WAV file.
-	public void initialize () throws Exception {
-		// Get the file
-		file = fc.getSelectedFile();
-		
-		// Make sure we can work with the file
-		if (!file.canExecute()) {
-			throw new Exception("Error: File either does not exist or can not execute");
-		}
+	// Function: releaseAudioResources
+	// Description: Will release the audio resources currently in use
+	public void releaseAudioResources() {
+		audioClip.stop();
+		audioClip.close();
+	}
 	
+	// Function: readWavFileData
+	// Description: Will read in the WAV file's data into a byte array
+	public void readWavFileData () throws Exception {
+		System.out.println("Called readWavFileData()");
+		
 		// Prepare to read the WAV file's data
 		inStream = new FileInputStream(file);
 		buffInStream = new BufferedInputStream(inStream);
@@ -226,7 +225,63 @@ public class JWav {
 			
 		// After copying the data, close the current stream.
 		buffInStream.close();
-			
+	}
+	
+	// Function: copyWavFile
+	// Description: Will either overwrite a WAV file if the file exists, or
+	//              will create a new WAV file if the file doesn't exist.
+	//              The file will be an exact copy of the WAV file that is
+	//              referred to in the "file" member variable.
+	public void copyWavFile() throws Exception {
+		System.out.println("Called copyWavFile()");
+		
+		// Grab the file the user selected/input to save to
+		File destFile = fc.getSelectedFile();
+		
+		System.out.print("File ");
+		
+		// Overwrite the selected WAV file
+		if (destFile.exists()) {
+			System.out.println(" exists.");
+			System.out.println("Overwriting file.");
+			Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			System.out.println("File overwritten.");
+		}
+		// Create a new WAV file
+		else {
+			System.out.println(" does not exist.");
+			System.out.println("Looks like we're going to create this new file.");
+			Files.copy(file.toPath(), destFile.toPath());
+			System.out.println("File created.");
+		}
+		
+		// Next, point to our newly saved WAV file
+		file = destFile;
+		
+		// Read in the WAV file data
+		readWavFileData();
+		
+		// Break the WAV's data into it's corresponding parts:
+		//      Header, Format, Data.
+		// Will be useful later for manipulating the data and injecting it into
+		// a new WAV file.
+//		wavHeader = new WavHeader();
+//		wavFormat = new WavFormatChunk(); // TO-DO
+//		wavData = new WavDataChunk(); // TO-DO
+	}
+	
+	// Function: initialize
+	// Description: Will use the user-provided WAV file to setup
+	//              being able to process and use the WAV file.
+	public void initialize () throws Exception {
+		// Get the file
+		file = fc.getSelectedFile();
+		
+		// Make sure we can work with the file
+		if (!file.canExecute()) {
+			throw new Exception("Error: File either does not exist or can not execute");
+		}
+	
 		// Setup the necessary items so the user can interact with the WAV file
 		audioStream = AudioSystem.getAudioInputStream(file);
 		audioFormat = audioStream.getFormat();
@@ -236,14 +291,6 @@ public class JWav {
 		
 		// the WAV file is valid if it has reached this point
 		validWavFile = true;
-		
-		// Break the WAV's data into it's corresponding parts:
-		//      Header, Format, Data.
-		// Will be useful later for manipulating the data and injecting it into
-		// a new WAV file.
-		wavHeader = new WavHeader();
-		wavFormat = new WavFormatChunk(); // TO-DO
-		wavData = new WavDataChunk(); // TO-DO
 	}
 	
 	// Function: encryptMessage
@@ -263,8 +310,52 @@ public class JWav {
 	// Description: Will access the WAV file's data, modify it
 	//              to contain the encrypted message's data.
 	// TO-DO
-	public void injectEncryptedMessage () {
+	public void injectEncryptedMessage () throws Exception {
 		System.out.println("Called injectEncryptedMessage function.");
+		
+		// TEST #1 START
+		// Status: Passed. :)
+		// Let's assume we have been able to convert our message from the GUI into a byte array
+		// For testing purposes, I'm going to grab the bytes from an arbitrary WAV file and use
+		// them to write to the WAV file in question.
+		File tempFile = new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles/LinkinPark_Numb.wav");
+		
+		// Prepare to read the WAV file's data
+		InputStream tempInStream= new FileInputStream(tempFile);
+		BufferedInputStream tempBuffInStream = new BufferedInputStream(tempInStream);
+		
+		// Copy the file's data into a byte array
+		byte[] tempAllData;
+		int availableBytes = tempBuffInStream.available();
+		if (availableBytes > 0) {
+			tempAllData = new byte[availableBytes];
+			int read = 0;
+			while (availableBytes > 0) {
+				read = tempBuffInStream.read(tempAllData, read, availableBytes);
+				availableBytes = tempBuffInStream.available();
+			}
+		}
+		else {
+			tempBuffInStream.close();
+			throw new Exception("Error: Couldn't read test WAV file's stuff.");
+		}
+			
+		// After copying the data, close the current stream.
+		tempBuffInStream.close();
+		tempFile = null;
+		
+		// Try to copy the data from LinkinPark_Numb.wav into testing123_Copy.wav
+		FileOutputStream fop = new FileOutputStream(file);
+		fop.write(tempAllData);
+		fop.close();
+		// TEST #1 END
+		
+		// TEST #2 START - Simulate message.
+		// Status: TO-DO
+		// Now we're going to convert a String message into bits, insert it into
+		// the byte array, and finally write to the WAV file using the byte array.
+		//message = "Hello World!";
+		// TEST #2 END
 	}
 
 	// Function: decryptMessage
@@ -332,6 +423,12 @@ public class JWav {
 	//              "hasInjectedMessage" to TRUE or FALSE.
 	public void checkForInjectedMessage () {
 		System.out.println("Called hasValidWavFile function.");
+	}
+	
+	// Function: testStuff()
+	// Description: Will be used to test stuff. Oh yeah.
+	public void testStuff() {
+		System.out.println("Testing Stuff:");
 	}
 	
 	// ------ INNER CLASSES ------
