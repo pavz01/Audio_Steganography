@@ -349,11 +349,13 @@ public class Audio_Steganography_Driver extends JPanel
 						// Save the copied WAV file to the hard drive
 						tempJWav.copyWavFile(); // DONE :)
 						
+						tempJWav.setMessage(getGuiEncryptMessage());
+						
 						// Encrypt the message
-//						tempJWav.encryptMessage(getGuiEncryptPassword(), getGuiEncryptMessage()); // TO-DO
+//						tempJWav.encryptMessage(getGuiEncryptPassword()); // TO-DO
 						
 						// Insert the encrypted message into the copied WAV file
-						tempJWav.injectEncryptedMessage(); // TO-DO
+						tempJWav.injectEncryptedMessage();
 					}
 
 					// Cancel processing due to user not choosing a file to save to
