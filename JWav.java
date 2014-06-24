@@ -12,7 +12,18 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.security.AlgorithmParameters;
+import java.security.SecureRandom;
+import java.security.spec.KeySpec;
+import java.util.Random;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
+import org.apache.commons.codec.binary.Base64;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.Clip;
@@ -39,6 +50,7 @@ public class JWav {
 	private File file;
 	private String message;
 	private byte[] allWavData;
+	private byte[] iv;
 	private Boolean validWavFile;
 	private Boolean hasInjectedMessage;
 	
@@ -294,14 +306,27 @@ public class JWav {
 	// Function: encryptMessage
 	// Description: Will use the user-provided password and encrypt the
 	//              user-provided message.
-	// TO-DO
-	public void encryptMessage (char[] guiPassword) {
+	// DONE
+	public void encryptMessage (char[] guiPassword) throws Exception {
 		System.out.println("Called encryptMessage function.");
-/*
-//		System.out.println("encryptMessage: Password = " + guiPassword.toString());
-		char [] correctPass = new char[] {'a', 'a'};
-		System.out.println("encryptMessage: Message = " + guiMessage);
-*/
+		System.out.println("Message is: " + message);
+		
+		// Make the key from the given password and salt
+		final Random r = new SecureRandom();
+		byte [] salt = new byte[8];
+		r.nextBytes(salt);
+		SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+		KeySpec spec = new PBEKeySpec(guiPassword, salt, 65536, 128);
+		SecretKey tmp = factory.generateSecret(spec);
+		SecretKey secretKey = new SecretKeySpec(tmp.getEncoded(), "AES");
+
+		// Now encrypt the message with the key
+		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+		cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+		AlgorithmParameters params = cipher.getParameters();
+		iv = params.getParameterSpec(IvParameterSpec.class).getIV();
+		message = Base64.encodeBase64String(cipher.doFinal(message.getBytes("UTF-8")));
+		System.out.println("Encrypted message is: " + message);
 	}
 	
 	// Function: injectEncryptedMessage
@@ -514,18 +539,14 @@ public class JWav {
 	//              and then decrypt the message. Will use the
 	//              password the user provided to decrypt the message
 	//              whether it is the right password or not.
-	// TO-DO
+	// In Progress
 	public void decryptMessage (char [] guiPassword) {
 		System.out.println("Called decryptMessage function.");
 /*
-		// This should actually be extracted from the WAV file
-		char [] correctPassword = new char [] {'a', 'a'};
-
-		if (Arrays.equals(guiPassword, correctPassword)) {
-		    System.out.println("Password is correct");
-		} else {
-		    System.out.println("Incorrect password");
-		}
+		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+		cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
+		message = new String(cipher.doFinal(Base64.decodeBase64(message)));
+		System.out.println("Decrypted message is: " + message);
 */
 	}
 	
