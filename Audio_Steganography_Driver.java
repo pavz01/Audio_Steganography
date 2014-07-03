@@ -170,10 +170,6 @@ public class Audio_Steganography_Driver extends JPanel
 		encryptSecretMessage.setWrapStyleWord(true);
 		encryptSecretMessage.setDocument(new LimitedPlainDocument(MESSAGE_MAX_CHARACTERS));
 		
-		// Create Test Button which will be useful for testing stuff
-		testButton = new JButton("<html><b>Test</b></html>"); // DELETE LATER
-		testButton.addActionListener(this);
-		
 		// Add content to sub-panels
 		encryptSubPanel1.add(encryptLabel);
 
@@ -187,7 +183,6 @@ public class Audio_Steganography_Driver extends JPanel
 		encryptSubPanel5.add(encryptPlayButton);
 		encryptSubPanel5.add(encryptStopButton);
 		encryptSubPanel5.add(encryptRunButton);
-		encryptSubPanel5.add(testButton);
 
 		// Add all encrypt sub-panels to encryptPanel
 		encryptPanel.add(encryptSubPanel1);
@@ -476,16 +471,6 @@ public class Audio_Steganography_Driver extends JPanel
 			}
 			else {
 				System.out.println("decryptStopButton Error: wav file is not valid.");
-			}
-		}
-		
-		// Otherwise the user is a dev testing stuff out
-		else if (eventSource == testButton) {
-			try {
-				encryptJWav.testStuff();
-			}
-			catch (Exception e) {
-				System.out.println("Error testing: " + e.getMessage());
 			}
 		}
 	}
