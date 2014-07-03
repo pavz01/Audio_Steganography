@@ -234,6 +234,7 @@ public class JWav {
 		// Overwrite the selected WAV file
 		if (destFile.exists()) {
 			System.out.println(" exists.");
+			
 			System.out.println("Overwriting file.");
 			Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			System.out.println("File overwritten.");
@@ -416,10 +417,12 @@ public class JWav {
 		
 		// Validate and retrieve the integer form of numCharacters
 		int sizeCharacters = Integer.parseInt(numCharacters);
+		int sizeMessagePadding = 0;
 		
 		// must add '#' padding to message. WORKING HERE!!!
 		while ( (sizeCharacters % 16) != 0 ) {
 			sizeCharacters++;
+			sizeMessagePadding++;
 		}
 		
 		message = new byte[sizeCharacters];
@@ -473,6 +476,20 @@ public class JWav {
 		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
 		cipher.init(Cipher.DECRYPT_MODE, secretKey);
 		message = cipher.doFinal(message);
+
+		int messageLength = message.length;
+		byte[] tempMessage = new byte[messageLength];
+		
+		for (int i = 0; i < messageLength; i++) {
+			tempMessage[i] = message[i];
+		}
+		
+		int count = messageLength - sizeMessagePadding;
+		message = new byte[count];
+		
+		for (int i = 0; i < count; i++) {
+			message[i] = tempMessage[i];
+		}
 		
 		System.out.println("Decrypted message is: " + new String(message, "UTF-8"));
 	}
