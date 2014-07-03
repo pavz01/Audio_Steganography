@@ -99,8 +99,14 @@ public class Audio_Steganography_Driver extends JPanel
 		return encryptSecretMessage.getDocument().getText(0, encryptSecretMessage.getDocument().getLength());
 	}
 	
+	// Getter function that returns encrypt's password
 	public char[] getGuiEncryptPassword() throws Exception {
 		return encryptPassword.getPassword();
+	}
+	
+	// Getter function that returns encrypt's password
+	public char[] getGuiDecryptPassword() throws Exception {
+		return decryptPassword.getPassword();
 	}
 
 	// Constructor
@@ -265,8 +271,6 @@ public class Audio_Steganography_Driver extends JPanel
 		// Handle when the user wants to choose a file
 		if ( (eventSource == encryptFCButton) ||
 			 (eventSource == decryptFCButton) ) {
-//			int returnVal;
-
 			try {
 				if (eventSource == encryptFCButton) {
 					System.out.println("encryptFCButton");
@@ -349,13 +353,15 @@ public class Audio_Steganography_Driver extends JPanel
 						// Save the copied WAV file to the hard drive
 						tempJWav.copyWavFile();
 						
-						tempJWav.setMessage(getGuiEncryptMessage());
+						// Read WAV file's data
+						tempJWav.readWavBytes();
+						tempJWav.displayWavFileInfo(); // for debug purposes
 						
 						// Encrypt the message
-						tempJWav.encryptMessage(getGuiEncryptPassword());
+						tempJWav.encryptMessage(getGuiEncryptMessage(), getGuiEncryptPassword());
 						
 						// Insert the encrypted message into the copied WAV file
-						tempJWav.injectEncryptedMessage();
+						tempJWav.injectMessage();
 					}
 
 					// Cancel processing due to user not choosing a file to save to
@@ -386,9 +392,12 @@ public class Audio_Steganography_Driver extends JPanel
 				System.out.println("Hurray, has valid wav/password file.");
 				
 				try {
+					// Read WAV entire WAV file into byte array
+					decryptJWav.readWavBytes();
+					decryptJWav.displayWavFileInfo(); // for debug purposes
+					
 					// Decrypt the message using the user-provided password
-					// THIS SHOULD ACTUAL COME FROM THE DECRYPT MESSAGE FIELD
-					decryptJWav.decryptMessage(new String("TESTING").toCharArray()); // IN PROGRESS
+					decryptJWav.decryptMessage(getGuiDecryptPassword()); // IN PROGRESS
 					
 					// Display the result in the decrypt's GUI message area
 					guiDecryptDisplayMessage(decryptJWav.getMessage());

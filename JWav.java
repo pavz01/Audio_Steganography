@@ -12,18 +12,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.security.AlgorithmParameters;
-import java.security.SecureRandom;
-import java.security.spec.KeySpec;
-import java.util.Random;
 
 import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import org.apache.commons.codec.binary.Base64;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.Clip;
@@ -48,9 +39,7 @@ public class JWav {
 	private WavFormatChunk wavFormatChunk;
 	private WavDataChunk wavDataChunk;
 	private File file;
-	private String message;
-	private byte[] allWavData;
-	private byte[] iv;
+	private byte[] message;
 	private Boolean validWavFile;
 	private Boolean hasInjectedMessage;
 	
@@ -98,18 +87,6 @@ public class JWav {
 		fc.setFileFilter(filter);
 		fc.setAcceptAllFileFilterUsed(false);
 		
-//		allWavData = originalJWav.getAllWavData();
-		
-/*
-		inStream = new FileInputStream(file);
-		buffInStream = new BufferedInputStream(inStream);
-		audioStream = AudioSystem.getAudioInputStream(buffInStream);
-		audioFormat = audioStream.getFormat();
-		audioInfo = new DataLine.Info(Clip.class, audioFormat);
-		audioClip = (Clip) AudioSystem.getLine(audioInfo);
-		audioClip.open(audioStream);
-*/		
-		
 		// the WAV file has already been validated for it to be copying
 		validWavFile = true;
 	}
@@ -120,20 +97,8 @@ public class JWav {
 	public void setWavFileToNotValid() {
 		validWavFile = false;
 	}
-	
-	// Function: setMessage
-	// Description: A setter function to set "message"
-	public void setMessage (String guiMessage) {
-		message = guiMessage;
-	}
-	
+
 	// ------ GETTERS ------
-	// Function: getAllWavData
-	// Description: A getter function that returns "allWavData"
-	public byte[] getAllWavData () {
-		return allWavData;
-	}
-	
 	// Function: getJFileChooser
 	// Description: A getter function that returns "fc"
 	public JFileChooser getJFileChooser () {
@@ -149,15 +114,13 @@ public class JWav {
 	// Function: getMessage
 	// Description: Returns "message"
 	public String getMessage () throws Exception {
-		// For unit testing purposes
-		message = "This is a testing message!"; // DELETE LATER
-		
-		// Valid "message" has content
-		if (isNullOrWhitespace(message)) {
-			throw new Exception("Error: 'message' variable cannot be null/empty/all whitespace.");
+		if (message == null) {
+			throw new Exception("getMessage Error: 'message' is null.");
 		}
 		
-		return message;
+		String stringMessage = new String(message, "UTF-8");
+		
+		return stringMessage;
 	}
 	
 	// Function: getFileName
@@ -185,8 +148,9 @@ public class JWav {
 	// Description: Will display useful information about the WAV file.
 	//              Useful for debugging purposes.
 	public void displayWavFileInfo() {
-		System.out.println("Audio frame length: " + audioClip.getFrameLength());
-		System.out.println("Audio frame position: " + audioClip.getFramePosition());
+		wavHeaderChunk.display();
+		wavFormatChunk.display();
+		wavDataChunk.display();
 	}
 	
 	// ------ HELPER FUNCTIONS ------
@@ -217,10 +181,14 @@ public class JWav {
 		audioClip.close();
 	}
 	
-	// Function: readWavFileData
+	// Function: readWavBytes
 	// Description: Will read in the WAV file's data into a byte array
-	public void readWavFileData () throws Exception {
-		System.out.println("Called readWavFileData()");
+	public void readWavBytes () throws Exception {
+		System.out.println("Called readWavBytes()");
+		
+		if ( (file == null) || !file.exists() ) {
+			throw new Exception("readWavBytes Error: file is either null or doesn't exist.");
+		}
 		
 		// Prepare to read the WAV file's data
 		inStream = new FileInputStream(file);
@@ -228,11 +196,12 @@ public class JWav {
 		
 		// Copy the file's data into a byte array
 		int availableBytes = buffInStream.available();
+		byte[] tempWavData;
 		if (availableBytes > 0) {
-			allWavData = new byte[availableBytes];
+			tempWavData = new byte[availableBytes];
 			int read = 0;
 			while (availableBytes > 0) {
-				read = buffInStream.read(allWavData, read, availableBytes);
+				read = buffInStream.read(tempWavData, read, availableBytes);
 				availableBytes = buffInStream.available();
 			}
 		}
@@ -243,6 +212,10 @@ public class JWav {
 			
 		// After copying the data, close the current stream.
 		buffInStream.close();
+		
+		wavHeaderChunk = new WavHeader(tempWavData);
+		wavFormatChunk = new WavFormatChunk(tempWavData);
+		wavDataChunk = new WavDataChunk(tempWavData);
 	}
 	
 	// Function: copyWavFile
@@ -275,9 +248,6 @@ public class JWav {
 		
 		// Next, point to our newly saved WAV file
 		file = destFile;
-		
-		// Read in the WAV file data
-		readWavFileData();
 	}
 	
 	// Function: initialize
@@ -302,135 +272,140 @@ public class JWav {
 		// the WAV file is valid if it has reached this point
 		validWavFile = true;
 	}
-	
-	// Function: encryptMessage
+
+	// Function: encryptMessage (String, char[])
 	// Description: Will use the user-provided password and encrypt the
 	//              user-provided message.
-	// DONE
-	public void encryptMessage (char[] guiPassword) throws Exception {
+	// The plan is to create a byte[] that has the following contents:
+	//    #[number of characters in message to be hidden]#[encrypted message to be hidden][encrypted padding of '#'s if necessary]
+	//    For example, for a message of "hello world": #11#[encrypted form of 'hello world#####']
+	public void encryptMessage (String tempMessage, char[] guiPassword) throws Exception {
 		System.out.println("Called encryptMessage function.");
-		System.out.println("Message is: " + message);
 		
-		// Make the key from the given password and salt
-		final Random r = new SecureRandom();
-		byte [] salt = new byte[8];
-		r.nextBytes(salt);
-		SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
-		KeySpec spec = new PBEKeySpec(guiPassword, salt, 65536, 128);
-		SecretKey tmp = factory.generateSecret(spec);
-		SecretKey secretKey = new SecretKeySpec(tmp.getEncoded(), "AES");
+		System.out.println("Message is: " + tempMessage);
 
-		// Now encrypt the message with the key
-		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-		cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-		AlgorithmParameters params = cipher.getParameters();
-		iv = params.getParameterSpec(IvParameterSpec.class).getIV();
-		message = Base64.encodeBase64String(cipher.doFinal(message.getBytes("UTF-8")));
-		System.out.println("Encrypted message is: " + message);
+		// Create the '#[number of characters in message to be hidden]#' portion of our byte array
+		byte[] unencryptedBytes = new String("#" + tempMessage.length() + "#").getBytes("UTF-8");
+		System.out.println("unencryptedBytes is: " + new String(unencryptedBytes, "UTF-8")); // For debugging purposes
+		
+		// Add any necessary padding to the user-provided password
+		String tempPassword = new String(guiPassword);
+		int padding = 16 - guiPassword.length;
+		for (int i = 0; i < padding; i++) {
+			tempPassword += "0";
+		}
+
+		// Use the password w/ padding to create a secret key
+		SecretKeySpec secretKey = new SecretKeySpec(tempPassword.getBytes("UTF-8"), "AES");
+		tempPassword = null;
+		guiPassword = null;
+		
+		// Get an instance for an AES cipher
+		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+
+		// Initialize the AES cipher using the secret key
+		cipher.init(Cipher.ENCRYPT_MODE,  secretKey);
+		
+		// Add padding to the user-provided message. Ex/ 'hello world' -> 'hello world#####'
+		for (int i = tempMessage.length(); (i % 16) != 0; i++) {
+			tempMessage += "#";
+		}
+
+		// Create the encrypted portion. Ex/ [encrypted form of 'hello world#####']
+		byte[] encryptedBytes = cipher.doFinal(tempMessage.getBytes("UTF-8"));
+		
+		System.out.println("Encrypted message is: " + new String(encryptedBytes, "UTF-8"));
+		
+		message = new byte[unencryptedBytes.length + encryptedBytes.length];
+		System.arraycopy(unencryptedBytes, 0, message, 0, unencryptedBytes.length);
+		System.arraycopy(encryptedBytes, 0, message, unencryptedBytes.length, encryptedBytes.length);
+		
+		
+		// KEEP THIS FOR DEBUGGING
+		cipher.init(Cipher.DECRYPT_MODE, secretKey);
+		byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+		System.out.println("Decrypted message is: " + new String(decryptedBytes, "UTF-8"));
+
 	}
-	
-	// Function: injectEncryptedMessage
-	// Description: Will access the WAV file's data, modify it
-	//              to contain the encrypted message's data.
-	// TO-DO
-	public void injectEncryptedMessage () throws Exception {
-		System.out.println("Called injectEncryptedMessage function.");
+
+	// Function: decryptMessage
+	// Description: Will extract the WAV file's encrypted message,
+	//              and then decrypt the message. Will use the
+	//              password the user provided to decrypt the message
+	//              whether it is the right password or not.
+	// In Progress
+	public void decryptMessage (char [] guiPassword) throws Exception {
+		System.out.println("Called decryptMessage function.");
 		
-		/*
-		// TEST #1 START
-		// Status: Passed. :)
-		// Let's assume we have been able to convert our message from the GUI into a byte array
-		// For testing purposes, I'm going to grab the bytes from an arbitrary WAV file and use
-		// them to write to the WAV file in question.
-		File tempFile = new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles/LinkinPark_Numb.wav");
+		byte poundByte = (byte) 0x23;
+		// This will be used to determine what character is potentially hidden
+		byte tempByte = 0;
+		byte[] tempData = wavDataChunk.getData();
+		String numCharacters = ""; // We will have up to 3 characters
 		
-		// Prepare to read the WAV file's data
-		InputStream tempInStream= new FileInputStream(tempFile);
-		BufferedInputStream tempBuffInStream = new BufferedInputStream(tempInStream);
+		ByteBuffer bb = ByteBuffer.wrap(wavFormatChunk.getBlockAlign());
+		bb.order(ByteOrder.LITTLE_ENDIAN);
+		int byteOffset = bb.getInt(); // The # of bytes between LSB's in the WAV file
 		
-		// Copy the file's data into a byte array
-		byte[] tempAllData;
-		int availableBytes = tempBuffInStream.available();
-		if (availableBytes > 0) {
-			tempAllData = new byte[availableBytes];
-			int read = 0;
-			while (availableBytes > 0) {
-				read = tempBuffInStream.read(tempAllData, read, availableBytes);
-				availableBytes = tempBuffInStream.available();
-			}
-		}
-		else {
-			tempBuffInStream.close();
-			throw new Exception("Error: Couldn't read test WAV file's stuff.");
-		}
-			
-		// After copying the data, close the current stream.
-		tempBuffInStream.close();
-		tempFile = null;
-		
-		// Try to copy the data from LinkinPark_Numb.wav into testing123_Copy.wav
-		FileOutputStream fop = new FileOutputStream(file);
-		fop.write(tempAllData);
-		fop.close();
-		// TEST #1 END
-		*/
-		
-		// TEST #2 START - Simulate message.
-		// Status: PASSED. :)
-		// We are going to test out our binary manipulation now.
-		/*
-		byte byteTestZero = (byte)0x63;
-		byte zeroMask = (byte)0xfe; // Need to use & operator
-		byte byteTestOne = (byte)0x58;
-		byte oneMask = (byte)0x01; // Need to use | operator
-		
-		System.out.println("Should be 98: " + (byteTestZero & zeroMask));
-		System.out.println("Should be 89: " + (byteTestOne | oneMask));
-		
-		// TEST #2 END
-		*/
-		
-		// TEST #3 START - Simulate message.
-		// Status: Passed. :)
-		// Now we're going to convert a String message into a byte array, 
-		// and write to the WAV file using the byte array.
-		/*
-		int numCharacters = message.length();
-		byte[] bytesToHide = message.getBytes();
-		byte maskByte = (byte) 0x80;
-		int dataSize = allWavData.length - 44;
-		int sizeNeeded = 64 * numCharacters;
-		byte maskZero = (byte)0xfe; // Need to use & operator
+		byte maskByte = (byte) 0x80; // 1000 0000
 		byte maskOne = (byte)0x01; // Need to use | operator
 		byte maskReset = (byte)0x80;
 		
-		if (dataSize < sizeNeeded) {
-			throw new Exception ("Error: WAV file is too small to hide message.");
-		}
-
-		// Inject all characters of the message into allWavData
-		// BUG ALERT: We're currently injecting our bytes into each byte sequentially.
-		//   This can change an int of: 30452 or 0111 0110 1111 0100
-		//                          to: 30709 or 0111 0111 1111 0101.
-		//   That's why we're getting tons of static initially.
-		for (int i = 0, j = 100000; i < numCharacters; j++) {
+		// This first search is to find out how many characters are in the
+		// hidden message. If there is a hidden message, the number of
+		// characters hidden will be within the 1st 5 hidden characters.
+		for (int i = 0, j = 0; i < 5; j = j + byteOffset) {
 			// Determine if the current bit for the current character is a one
-			if ( (bytesToHide[i] & maskByte) == maskByte) {
-				// Mask the LSB of the current byte of allWavData with a one
-				allWavData[j] = (byte)(allWavData[j] | maskOne);
+			if ( (tempData[j] & maskOne) == maskOne) {
+				// Mask the LSB of the current byte of tempByte with a one
+				tempByte = (byte)(tempByte | maskByte);
 			}
-			// If it's not a one, then it's a zero
-			else {
-				// Mask the LSB of the current byte of allWavData with a zero
-				allWavData[j] = (byte)(allWavData[j] & maskZero);
-			}
-
-			// Check if we have injected the last bit of the current character
+			
+			// Check if we are on the last bit of the current character
 			if (maskByte == maskOne) {
-				// If so, reset the bit to check for to the MSB
+				if (i == 0) {
+					// If we're on the 1st character and it isn't a pound,
+					// then we don't have a hidden message.
+					if (tempByte != poundByte) {
+						// Set numCharacters to 300 to spit out gibberish
+						// to the user for trying to retrieve a hidden
+						// when it isn't there. Security measure.
+						numCharacters = "300";
+						break;
+					}
+					
+					// Otherwise, reset the necessary variables and don't
+					// bother recording the '#' in numCharacters
+					
+					// Reset tempByte
+					tempByte = 0;
+					
+					// Reset the bit to check for to the MSB
+					maskByte = maskReset;
+					
+					// Then, move on to the next character
+					i++;
+					
+					continue;
+				}
+				// If we find a second '#' character after the 1st character,
+				// then we've either found the number of characters hidden or
+				// there isn't a hidden message. Either way, we're done processing
+				// this part.
+				else if ( (i != 0) && (tempByte == poundByte) ) {
+					break;
+				}
+				
+				// Otherwise, record the current character as a string
+				numCharacters += new String(new byte[] { (byte) tempByte }, "UTF-8");
+				
+				// Reset tempByte
+				tempByte = 0;
+				
+				// Reset the bit to check for to the MSB
 				maskByte = maskReset;
 				
-				// Then, move on to the next character to inject
+				// Then, move on to the next character
 				i++;
 			}
 			// Otherwise, move on to the next bit of the current character
@@ -439,48 +414,103 @@ public class JWav {
 			}
 		}
 		
-		FileOutputStream fop = new FileOutputStream(file);
-		fop.write(allWavData);
-		fop.close();
+		// Validate and retrieve the integer form of numCharacters
+		int sizeCharacters = Integer.parseInt(numCharacters);
 		
-		System.out.println("test3");
-		// TEST #3 END
-		*/
+		// must add '#' padding to message. WORKING HERE!!!
+		while ( (sizeCharacters % 16) != 0 ) {
+			sizeCharacters++;
+		}
 		
-		/*
-		// TEST 4 START - Initialize WavHeader, WavFormatChunk, WavDataChunk.
-		// Status: Passed. :)
-		// Break the WAV's data into it's corresponding parts: Header, Format, Data.
-		// Will be useful later for manipulating the data and injecting it into
-		// a new WAV file.
-		wavHeader = new WavHeader(); // DONE
-		wavHeader.display();
-		wavFormat = new WavFormatChunk(); // DONE
-		wavFormat.display();
-		wavData = new WavDataChunk(); // DONE
-		wavData.display();
+		message = new byte[sizeCharacters];
+		tempByte = 0;
+		maskByte = maskReset;
 		
-		System.out.println("test4");
-		// TEST #4 END
-		*/
+		// Use this for extracting the encrypted bytes. WORKING HERE NOW
+		for (int i = 0, j = 8 * byteOffset * (numCharacters.length() + 2); i < sizeCharacters; j = j + byteOffset) {
+			// Determine if the current bit for the current character is a one
+			if ( (tempData[j] & maskOne) == maskOne) {
+				// Mask the LSB of the current byte of tempByte with a one
+				tempByte = (byte)(tempByte | maskByte);
+			}
+			
+			// Check if we are on the last bit of the current character
+			if (maskByte == maskOne) {
+				// If we are, then save the compiled byte into our message
+				message[i] = tempByte;
+				
+				// Reset tempByte
+				tempByte = 0;
+				
+				// Reset the bit to check for to the MSB
+				maskByte = maskReset;
+				
+				// Then, move on to the next character
+				i++;
+			}
+			// Otherwise, move on to the next bit of the current character
+			else {
+				maskByte = (byte)((maskByte & 0xff) >>> 1);
+			}
+		}
 		
-		// TEST 5 START - Use the new classes to modify and update the WAV file.
-		// Upon completion of this test, the user will not be able to notice
-		// the difference between the original WAV file and the WAV file that
-		// has the hidden message contained in it. This should be the last step
-		// for completing the main functionality for this function.
-		// Status: Passed. :)
-		wavHeaderChunk = new WavHeader();
-		wavFormatChunk = new WavFormatChunk();
-		wavDataChunk = new WavDataChunk();
+		// Message is correct so far
+		System.out.println("encrypted message is: " + new String(message, "UTF-8"));
 		
-		int numCharacters = message.length();
-		byte[] bytesToHide = message.getBytes();
-		byte maskByte = (byte) 0x80;
-		byte[] tempData = wavDataChunk.getData();
-		int dataSize = tempData.length;
-		int byteOffset = wavFormatChunk.getBlockAlign();
-		int sizeNeeded = 64 * numCharacters * byteOffset;
+		// Add any necessary padding to the user-provided password
+		String tempPassword = new String(guiPassword);
+
+		int padding = 16 - guiPassword.length;
+		for (int i = 0; i < padding; i++) {
+			tempPassword += "0";
+		}
+
+		// Use the password w/ padding to create a secret key
+		SecretKeySpec secretKey = new SecretKeySpec(tempPassword.getBytes("UTF-8"), "AES");
+		tempPassword = null;
+		guiPassword = null;
+		
+		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+		cipher.init(Cipher.DECRYPT_MODE, secretKey);
+		message = cipher.doFinal(message);
+		
+		System.out.println("Decrypted message is: " + new String(message, "UTF-8"));
+	}
+	
+	// Function: injectMessage
+	// Description: Will inject the "message" into the WAV file.
+	public void injectMessage() throws Exception {
+		System.out.println("Called injectEncryptedMessage function.");
+		
+		if (message == null) {
+			throw new Exception("injectMessage Error: message is null.");
+		}
+		
+		int numBytes = message.length; // # of bytes to injected
+		byte maskByte = (byte) 0x80; // 1000 0000
+		
+		if (wavDataChunk == null) {
+			throw new Exception("injectMessage Error: wavDataChunk is null.");
+		}
+		
+		byte[] tempData = new byte[wavDataChunk.getData().length];
+		for (int i = 0; i < wavDataChunk.getData().length; i++) {
+			tempData[i] = wavDataChunk.getData()[i];
+		}
+		
+		if ( (tempData == null) || (tempData.length <= 0) ) {
+			throw new Exception("injectMessage Error: tempData is either null or tempData.length is <= 0");
+		}
+		int dataSize = tempData.length; // The # of bytes in the data chunk
+		
+		if (wavFormatChunk == null) {
+			throw new Exception("injectMessage Error: wavFormatChunk is null");
+		}
+		ByteBuffer bb = ByteBuffer.wrap(wavFormatChunk.getBlockAlign());
+		bb.order(ByteOrder.LITTLE_ENDIAN);
+		int byteOffset = bb.getInt(); // The # of bytes between LSB's in the WAV file
+		
+		int sizeNeeded = numBytes * 8 * byteOffset; // # of bytes to hide * # of bytes needed to hide 1 byte of data * offset
 		byte maskZero = (byte)0xfe; // Need to use & operator
 		byte maskOne = (byte)0x01; // Need to use | operator
 		byte maskReset = (byte)0x80;
@@ -489,16 +519,16 @@ public class JWav {
 			throw new Exception ("Error: WAV file is too small to hide message.");
 		}
 
-		// Inject all characters of the message into allWavData
-		for (int i = 0, j = 0; i < numCharacters; j = j + byteOffset) {
+		// Inject all characters of the message into the WAV's data
+		for (int i = 0, j = 0; i < numBytes; j = j + byteOffset) {
 			// Determine if the current bit for the current character is a one
-			if ( (bytesToHide[i] & maskByte) == maskByte) {
-				// Mask the LSB of the current byte of allWavData with a one
+			if ( (message[i] & maskByte) == maskByte) {
+				// Mask the LSB of the current byte of tempData with a one
 				tempData[j] = (byte)(tempData[j] | maskOne);
 			}
 			// If it's not a one, then it's a zero
 			else {
-				// Mask the LSB of the current byte of allWavData with a zero
+				// Mask the LSB of the current byte of tempData with a zero
 				tempData[j] = (byte)(tempData[j] & maskZero);
 			}
 
@@ -516,40 +546,42 @@ public class JWav {
 			}
 		}
 		
-		// Copy tempData to allWavData
-		if (tempData.length == (allWavData.length - 44)) {
-			for (int i = 0; i < dataSize; i++) {
-//				System.out.print("allWavData[" + (i + 4) + "] before is: " + allWavData[i + 44]);
-				allWavData[i + 44] = tempData[i];
-//				System.out.println("         allWavData[" + (i + 44) + "] after is: " + allWavData[i + 44]);
-			}
+		// Copy tempData to the data in the dataChunk
+		if (tempData.length == wavDataChunk.getData().length) {
+			wavDataChunk.setData(tempData);
+		}
+		else {
+			throw new Exception("injectMessage Error: Error occurred while trying to inject message.");
 		}
 		
 		// Overwrite the WAV file with new data that contains the hidden message
 		FileOutputStream fop = new FileOutputStream(file);
-		fop.write(allWavData);
+		fop.write(compileNewWavData());
 		fop.close();
-		
-		System.out.println("test5");
-		// TEST #5 END
-	}
-
-	// Function: decryptMessage
-	// Description: Will extract the WAV file's encrypted message,
-	//              and then decrypt the message. Will use the
-	//              password the user provided to decrypt the message
-	//              whether it is the right password or not.
-	// In Progress
-	public void decryptMessage (char [] guiPassword) {
-		System.out.println("Called decryptMessage function.");
-/*
-		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-		cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
-		message = new String(cipher.doFinal(Base64.decodeBase64(message)));
-		System.out.println("Decrypted message is: " + message);
-*/
+		System.out.println("Message Injected.");
 	}
 	
+	public byte[] compileNewWavData() throws Exception {
+		ByteBuffer bb = ByteBuffer.wrap(wavHeaderChunk.getChunkSize());
+		bb.order(ByteOrder.LITTLE_ENDIAN);
+		int wavHeaderChunkSize = bb.getInt();
+		byte[] tempBytes = new byte[wavHeaderChunkSize + 8];
+		
+		byte[] tempWavHeaderBytes = wavHeaderChunk.getAllHeaderBytes(); // Cleared for takeoff
+		byte[] tempWavFormatBytes = wavFormatChunk.getAllFormatBytes(); // Cleared for takeoff
+		byte[] tempWavDataBytes = wavDataChunk.getAllDataChunkBytes(); // Cleared, I think...
+		
+		int sizeHeaderBytes = tempWavHeaderBytes.length;
+		int sizeFormatBytes = tempWavFormatBytes.length;
+		int sizeDataBytes = tempWavDataBytes.length;
+		
+		System.arraycopy(tempWavHeaderBytes, 0, tempBytes, 0, sizeHeaderBytes);
+		System.arraycopy(tempWavFormatBytes, 0, tempBytes, sizeHeaderBytes, sizeFormatBytes);
+		System.arraycopy(tempWavDataBytes, 0, tempBytes, (sizeHeaderBytes + sizeFormatBytes), sizeDataBytes);
+		
+		return tempBytes;
+	}
+
 	// Function: hasValidWavFile
 	// Description: A getter function that returns "hasValidWavFile"
 	public Boolean hasValidWavFile() {
@@ -608,52 +640,109 @@ public class JWav {
 	// Description: Will contain the WAV file's header info.
 	private class WavHeader {
 		// ------ MEMBER VARIABLES ------
-		private String chunkID; // Should be "RIFF"
-		private Integer chunkSize;
-		private String format; // Should be "WAVE"
+		private byte[] chunkID; // Should be "RIFF"
+		private byte[] chunkSize; // Total wav bytes - 8 bytes for the chunkID and the chunkSize
+		private byte[] format; // Should be "WAVE"
+		private byte[] allHeaderBytes;
 		
 		// ------ CONSTRUCTORS ------
-		// Constructor: WavHeader()
-		public WavHeader () {
+		// Constructor: WavHeader(byte[])
+		public WavHeader (byte[] tempAllWavData) throws Exception {
+			if (tempAllWavData == null) {
+				throw new Exception("WavHeader Constructor Error: tempAllWavData is empty.");
+			}
+			
 			try {
 				System.out.println("WavHeader Constructor");
+				System.out.println("Total Wav Length is: " + tempAllWavData.length);
+				
+				allHeaderBytes = new byte[12];
 				
 				// Set chunkID
-				byte[] tempByteArray = new byte[4];
+				chunkID = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i];
+					chunkID[i] = tempAllWavData[i];
+					allHeaderBytes[i] = tempAllWavData[i];
 				}
-				chunkID = new String(tempByteArray, "UTF-8");
 
 				// Grab the size of the WAV file
-				tempByteArray = new byte[4];
+				chunkSize = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i + 4];
+					chunkSize[i] = tempAllWavData[i + 4];
+					allHeaderBytes[i + 4] = tempAllWavData[i + 4];
 				}
-				ByteBuffer bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				chunkSize = bb.getInt();
 				
 				// Grab the format of the file. Should be "WAVE"
-				tempByteArray = new byte[4];
+				format = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i + 8];
+					format[i] = tempAllWavData[i + 8];
+					allHeaderBytes[i + 8] = tempAllWavData[i + 8];
 				}
-				format = new String(tempByteArray, "UTF-8");
-
+				
+				// Set allHeaderData
+				for (int i = 0; i < 12; i++) {
+					allHeaderBytes[i] = tempAllWavData[i];
+				}
 			}
 			catch (Exception e) {
 				System.out.println("WavHeader Error: " + e.getMessage());
 			}
 		}
 		
+		public byte[] getAllHeaderBytes() throws Exception {
+			if (allHeaderBytes == null) {
+				throw new Exception("Error: allHeaderBytes is null");
+			}
+			
+			return allHeaderBytes;
+		}
+		
+		public byte[] getChunkID() throws Exception {
+			if (chunkID == null) {
+				throw new Exception("Error: chunkID is null");
+			}
+			
+			return chunkID;
+		}
+		
+		public byte[] getChunkSize() throws Exception {
+			if (chunkSize == null) {
+				throw new Exception("Error: chunkSize is null");
+			}
+			
+			return chunkSize;
+		}
+		
+		public byte[] getFormat() throws Exception {
+			if (format == null) {
+				throw new Exception("Error: format is null");
+			}
+			
+			return format;
+		}
+		
 		public void display () {
 			try {
+				if (chunkID == null) {
+					throw new Exception("chunkID is null");
+				}
+				
 				System.out.println("HEADER CHUNK CONTENTS:");
-				System.out.println("chunkID is: " + chunkID);
-				System.out.println("chunkSize is: " + chunkSize);
-				System.out.println("chunkSize should be: " + (allWavData.length - 8));
-				System.out.println("format is: " + format);
+				System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
+				
+				if (chunkSize == null) {
+					throw new Exception("chunkSize is null");
+				}
+				
+				ByteBuffer bb = ByteBuffer.wrap(chunkSize);
+				bb.order(ByteOrder.LITTLE_ENDIAN);
+				System.out.println("chunkSize is: " + bb.getInt());
+				
+				if (format == null) {
+					throw new Exception("format is null");
+				}
+				
+				System.out.println("format is: " + new String(format, "UTF-8"));
 			}
 			catch (Exception e) {
 				System.out.println("WavHeader.display Error: " + e.getMessage());
@@ -665,112 +754,212 @@ public class JWav {
 	// Description: Will contain the WAV file's format info.
 	private class WavFormatChunk {
 		// ------ MEMBER VARIABLES ------
-		private String chunkID; // Contains the letters "fmt "
-		private Integer chunkSize; // size of the rest of the sub-chunk. 16 for PCM.
-		private Integer audioFormat; // values other than 1 indicate some form of compression
-		private Integer numChannels; // Mono = 1, Stereo = 2, etc.
-		private Integer sampleRate;
-		private Integer byteRate;
-		private Integer blockAlign; // # of bytes for 1 sample
-		private Integer bitsPerSample;
+		private byte[] chunkID; // Contains the letters "fmt "
+		private byte[] chunkSize; // size of the rest of the sub-chunk. 16 for PCM.
+		private byte[] audioFormat; // values other than 1 indicate some form of compression
+		private byte[] numChannels; // Mono = 1, Stereo = 2, etc.
+		private byte[] sampleRate;
+		private byte[] byteRate;
+		private byte[] blockAlign; // # of bytes for 1 sample
+		private byte[] bitsPerSample;
+		private byte[] allFormatBytes;
 		
 		// ------ CONSTRUCTORS ------
-		// Constructor: WavFormatChunk()
-		public WavFormatChunk () {
+		// Constructor: WavFormatChunk(byte[])
+		public WavFormatChunk (byte[] tempAllWavData) throws Exception {
 			System.out.println("WavFormatChunk Constructor");
 			
+			if (tempAllWavData == null) {
+				throw new Exception("WavFormatChunk Constructor Error: tempAllWavData is empty.");
+			}
+			
 			try {
+				allFormatBytes = new byte[24];
+				
 				// Set chunkID
-				byte[] tempByteArray = new byte[4];
+				chunkID = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i + 12];
+					chunkID[i] = tempAllWavData[i + 12];
+					allFormatBytes[i] = tempAllWavData[i + 12];
 				}
-				chunkID = new String(tempByteArray, "UTF-8");
 
 				// Set chunkSize
-				tempByteArray = new byte[4];
+				chunkSize = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i + 16];
+					chunkSize[i] = tempAllWavData[i + 16];
+					allFormatBytes[i + 4] = tempAllWavData[i + 16];
 				}
-				ByteBuffer bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				chunkSize = bb.getInt();
 				
 				// Set audioFormat
-				tempByteArray = new byte[4];
+				audioFormat = new byte[4];
 				for (int i = 0; i < 2; i++) {
-					tempByteArray[i] = allWavData[i + 20];
+					audioFormat[i] = tempAllWavData[i + 20];
+					allFormatBytes[i + 8] = tempAllWavData[i + 20];
 				}
-				bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				audioFormat = bb.getInt();
 				
 				// Set numChannels
-				tempByteArray = new byte[4];
+				numChannels = new byte[4];
 				for (int i = 0; i < 2; i++) {
-					tempByteArray[i] = allWavData[i + 22];
+					numChannels[i] = tempAllWavData[i + 22];
+					allFormatBytes[i + 10] = tempAllWavData[i + 22];
 				}
-				bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				numChannels = bb.getInt();
 				
 				// Set sampleRate
-				tempByteArray = new byte[4];
+				sampleRate = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i + 24];
+					sampleRate[i] = tempAllWavData[i + 24];
+					allFormatBytes[i + 12] = tempAllWavData[i + 24];
 				}
-				bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				sampleRate = bb.getInt();
 				
 				// Set byteRate
-				tempByteArray = new byte[4];
+				byteRate = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i + 28];
+					byteRate[i] = tempAllWavData[i + 28];
+					allFormatBytes[i + 16] = tempAllWavData[i + 28];
 				}
-				bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				byteRate = bb.getInt();
 				
 				// Set blockAlign
-				tempByteArray = new byte[4];
+				blockAlign = new byte[4];
 				for (int i = 0; i < 2; i++) {
-					tempByteArray[i] = allWavData[i + 32];
+					blockAlign[i] = tempAllWavData[i + 32];
+					allFormatBytes[i + 20] = tempAllWavData[i + 32];
 				}
-				bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				blockAlign = bb.getInt();
 				
 				// Set bitsPerSample
-				tempByteArray = new byte[4];
+				bitsPerSample = new byte[4];
 				for (int i = 0; i < 2; i++) {
-					tempByteArray[i] = allWavData[i + 34];
+					bitsPerSample[i] = tempAllWavData[i + 34];
+					allFormatBytes[i + 22] = tempAllWavData[i + 34];
 				}
-				bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				bitsPerSample = bb.getInt();
+				
 			}
 			catch (Exception e) {
 				System.out.println("Error WavFormatChunk: " + e.getMessage());
 			}
 		}
 		
-		public Integer getBlockAlign () {
+		public byte[] getAllFormatBytes() throws Exception {
+			if (allFormatBytes == null) {
+				throw new Exception("getAllFormatBytes Error: allFormatBytes is null");
+			}
+			
+			return allFormatBytes;
+		}
+		
+		public byte[] getChunkID() throws Exception {
+			if (chunkID == null) {
+				throw new Exception("getChunkID Error: chunkID is null");
+			}
+			
+			return chunkID;
+		}
+		
+		public byte[] getChunkSize() throws Exception {
+			if (chunkSize == null) {
+				throw new Exception("getChunkSize Error: chunkSize is null");
+			}
+			
+			return chunkSize;
+		}
+		
+		public byte[] getAudioFormat() throws Exception {
+			if (audioFormat == null) {
+				throw new Exception("getAudioFormat Error: audioFormat is null");
+			}
+			
+			return audioFormat;
+		}
+		
+		public byte[] getNumChannels() throws Exception {
+			if (numChannels == null) {
+				throw new Exception("getNumChannels Error: numChannels is null");
+			}
+			
+			return numChannels;
+		}
+		
+		public byte[] getSampleRate() throws Exception {
+			if (sampleRate == null) {
+				throw new Exception("getSampleRate Error: sampleRate is null");
+			}
+			
+			return sampleRate;
+		}
+		
+		public byte[] getByteRate () throws Exception {
+			if (byteRate == null) {
+				throw new Exception("getByteRate Error: byteRate is null");
+			}
+			
+			return byteRate;
+		}
+		
+		public byte[] getBlockAlign () throws Exception {
+			if (blockAlign == null) {
+				throw new Exception("getBlockAlign Error: blockAlign is null");
+			}
+			
 			return blockAlign;
+		}
+		
+		public byte[] getBitsPerSample () throws Exception {
+			if (bitsPerSample == null) {
+				throw new Exception("getBitsPerSample Error: bitsPerSample is null");
+			}
+			
+			return bitsPerSample;
 		}
 		
 		public void display () {
 			try {
 				System.out.println("FORMAT CHUNK CONTENTS:");
-				System.out.println("chunkID is: " + chunkID);
-				System.out.println("chunkSize is: " + chunkSize);
-				System.out.println("audioFormat is: " + audioFormat);
-				System.out.println("numChannels is: " + numChannels);
-				System.out.println("sampleRate is: " + sampleRate);
-				System.out.println("byteRate is: " + byteRate);
-				System.out.println("byteRate should be: " + (sampleRate * numChannels * bitsPerSample / 8));
-				System.out.println("blockAlign is: " + blockAlign);
-				System.out.println("bitsPerSample is: " + bitsPerSample);
+				
+				if (chunkID == null) {
+					throw new Exception("chunkID is null");
+				}
+				if (audioFormat == null) {
+					throw new Exception("audioFormat is null");
+				}
+				
+				if (numChannels == null) {
+					throw new Exception("numChannels is null");
+				}
+				
+				if (sampleRate == null) {
+					throw new Exception("sampleRate is null");
+				}
+				
+				if (byteRate == null) {
+					throw new Exception("byteRate is null");
+				}
+				
+				if (blockAlign == null) {
+					throw new Exception("blockAlign is null");
+				}
+								
+				if (bitsPerSample == null) {
+					throw new Exception("bitsPerSample is null");
+				}
+								
+				System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
+				
+				int tempChunkSize = ByteBuffer.wrap(chunkSize).order(ByteOrder.LITTLE_ENDIAN).getInt();
+				int tempAudioFormat = ByteBuffer.wrap(audioFormat).order(ByteOrder.LITTLE_ENDIAN).getInt();
+				int tempNumChannels = ByteBuffer.wrap(numChannels).order(ByteOrder.LITTLE_ENDIAN).getInt();
+				int tempSampleRate = ByteBuffer.wrap(sampleRate).order(ByteOrder.LITTLE_ENDIAN).getInt();
+				int tempByteRate = ByteBuffer.wrap(byteRate).order(ByteOrder.LITTLE_ENDIAN).getInt();
+				int tempBlockAlign = ByteBuffer.wrap(blockAlign).order(ByteOrder.LITTLE_ENDIAN).getInt();
+				int tempBitsPerSample = ByteBuffer.wrap(bitsPerSample).order(ByteOrder.LITTLE_ENDIAN).getInt();
+				int expectedByteRate = tempSampleRate * tempNumChannels * tempBitsPerSample / 8;
+				
+				System.out.println("chunkSize is: " + tempChunkSize);
+				System.out.println("audioFormat is: " + tempAudioFormat);
+				System.out.println("numChannels is: " + tempNumChannels);
+				System.out.println("sampleRate is: " + tempSampleRate);
+				System.out.println("byteRate is: " + tempByteRate);
+				System.out.println("byteRate should be: " + expectedByteRate);
+				System.out.println("blockAlign is: " + tempBlockAlign);
+				System.out.println("bitsPerSample is: " + tempBitsPerSample);
 			}
 			catch (Exception e) {
 				System.out.println("WavFormatChunk.display Error: " + e.getMessage());
@@ -782,41 +971,51 @@ public class JWav {
 	// Description: Will contain the WAV file's data info.
 	private class WavDataChunk {
 		// ------ MEMBER VARIABLES ------
-		private String chunkID;
-		private Integer chunkSize;
+		private byte[] chunkID;
+		private byte[] chunkSize;
 		private byte[] data;
+		private byte[] allDataChunkBytes;
 		
 		// ------ CONSTRUCTORS ------
-		// Constructor: WavDataChunk()
-		public WavDataChunk () {
+		// Constructor: WavDataChunk(byte[])
+		public WavDataChunk (byte[] tempAllWavData) throws Exception {
 			System.out.println("WavDataChunk Constructor");
+			
+			if (tempAllWavData == null) {
+				throw new Exception("WavDataChunk Constructor Error: tempAllWavData is empty.");
+			}
 			
 			try {
 				// Set chunkID
-				byte[] tempByteArray = new byte[4];
+				chunkID = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i + 36];
+					chunkID[i] = tempAllWavData[i + 36];
 				}
-				chunkID = new String(tempByteArray, "UTF-8");
 
 				// Set chunkSize
-				tempByteArray = new byte[4];
+				chunkSize = new byte[4];
 				for (int i = 0; i < 4; i++) {
-					tempByteArray[i] = allWavData[i + 40];
+					chunkSize[i] = tempAllWavData[i + 40];
 				}
-				ByteBuffer bb = ByteBuffer.wrap(tempByteArray);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				chunkSize = bb.getInt();
+				
+				int numDataBytes = ByteBuffer.wrap(chunkSize).order(ByteOrder.LITTLE_ENDIAN).getInt();
 				
 				// Make sure chunkSize is right
-				if (chunkSize != (allWavData.length - 44)) {
+				if (numDataBytes != (tempAllWavData.length - 44)) {
 					throw new Exception("Aaaaah! chunkSize isn't what it should be!");
 				}
 				
 				// Set data
-				data = new byte[chunkSize];
-				for (int i = 0; i < chunkSize; i++) {
-					data[i] = allWavData[i + 44];
+				data = new byte[numDataBytes];
+				for (int i = 0; i < numDataBytes; i++) {
+					data[i] = tempAllWavData[i + 44];
+				}
+				
+				// Set allDataChunkBytes
+				int totalBytesToRead = 8 + numDataBytes;
+				allDataChunkBytes = new byte[totalBytesToRead];
+				for (int i = 0; i < totalBytesToRead; i++) {
+					allDataChunkBytes[i] = tempAllWavData[i + 36];
 				}
 			}
 			catch (Exception e) {
@@ -824,26 +1023,66 @@ public class JWav {
 			}
 		}
 		
-		public byte[] getData() {
+		public byte[] getAllDataChunkBytes() throws Exception {
+			if (allDataChunkBytes == null) {
+				throw new Exception("Error: allDataChunkBytes is null");
+			}
+			
+			return allDataChunkBytes;
+		}
+		
+		public byte[] getChunkID() throws Exception {
+			if (chunkID == null) {
+				throw new Exception("getChunkID Error: chunkID is null");
+			}
+			
+			return chunkID;
+		}
+		
+		public byte[] getChunkSize() throws Exception {
+			if (chunkSize == null) {
+				throw new Exception("getChunkSize Error: chunkSize is null");
+			}
+			
+			return chunkSize;
+		}
+		
+		public byte[] getData() throws Exception {
+			if (data == null) {
+				throw new Exception("getData Error: data is null");
+			}
+			
 			return data;
+		}
+		
+		public void setData(byte[] tempData) throws Exception {
+			if (tempData == null) {
+				throw new Exception("setData Error: tempData is null");
+			}
+			
+			int length = tempData.length;
+			for (int i = 0; i < length; i++) {
+				data[i] = tempData[i];
+				allDataChunkBytes[i + 8] = tempData[i];
+			}
 		}
 		
 		public void display () {
 			try {
-				System.out.println("DATA CHUNK CONTENTS:");
-				System.out.println("chunkID is: " + chunkID);
-				System.out.println("chunkSize is: " + chunkSize);
-				System.out.println("chunkSize should be: " + (allWavData.length - 44));
-				
-				/*  // For debug purposes. Both outputs should be exactly the same.
-				// Compare all elements of both arrays.
-//				for (int i = 0, j = 44; i < data.length; i++, j++) { 
-				// Compare the last 1000000 elements of both arrays
-				for (int i = data.length - 1000000, j = allWavData.length - 1000000; i < data.length; i++, j++) {
-					System.out.print("data[" + i + "] is: " + data[i]);
-					System.out.println("         allWavData[" + j + "] is: " + allWavData[j]);
+				if (chunkID == null) {
+					throw new Exception("chunkID is null");
 				}
-				*/
+				
+				System.out.println("DATA CHUNK CONTENTS:");
+				System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
+				
+				if (chunkSize == null) {
+					throw new Exception("chunkSize is null");
+				}
+				
+				ByteBuffer bb = ByteBuffer.wrap(chunkSize);
+				bb.order(ByteOrder.LITTLE_ENDIAN);
+				System.out.println("chunkSize is: " + bb.getInt());
 			}
 			catch (Exception e) {
 				System.out.println("WavDataChunk.display Error: " + e.getMessage());
