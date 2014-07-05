@@ -147,7 +147,7 @@ public class JWav {
 	// Function: displayWavFileInfo
 	// Description: Will display useful information about the WAV file.
 	//              Useful for debugging purposes.
-	public void displayWavFileInfo() {
+	public void displayWavFileInfo() throws Exception {
 		wavHeaderChunk.display();
 		wavFormatChunk.display();
 		wavDataChunk.display();
@@ -243,6 +243,11 @@ public class JWav {
 		else {
 			System.out.println(" does not exist.");
 			System.out.println("Looks like we're going to create this new file.");
+			String destFileName = destFile.getName();
+			if (!destFileName.endsWith(".wav")) {
+				destFile = new File(destFile.getPath() + ".wav");
+			}
+			
 			Files.copy(file.toPath(), destFile.toPath());
 			System.out.println("File created.");
 		}
@@ -258,6 +263,9 @@ public class JWav {
 		// Get the file
 		file = fc.getSelectedFile();
 		
+		// Make sure the WAV file is properly constructed
+		readWavBytes();
+		
 		// Make sure we can work with the file
 		if (!file.canExecute()) {
 			throw new Exception("Error: File either does not exist or can not execute");
@@ -269,6 +277,7 @@ public class JWav {
 		audioInfo = new DataLine.Info(Clip.class, audioFormat);
 		audioClip = (Clip) AudioSystem.getLine(audioInfo);
 		audioClip.open(audioStream);
+		
 		
 		// the WAV file is valid if it has reached this point
 		validWavFile = true;
@@ -334,7 +343,6 @@ public class JWav {
 	//              and then decrypt the message. Will use the
 	//              password the user provided to decrypt the message
 	//              whether it is the right password or not.
-	// In Progress
 	public void decryptMessage (char [] guiPassword) throws Exception {
 		System.out.println("Called decryptMessage function.");
 		
@@ -646,12 +654,6 @@ public class JWav {
 		System.out.println("Called hasValidWavFile function.");
 	}
 	
-	// Function: testStuff()
-	// Description: Will be used to test stuff. Oh yeah.
-	public void testStuff() {
-		System.out.println("Testing Stuff:");
-	}
-	
 	// ------ INNER CLASSES ------
 	// Class: WavHeader
 	// Description: Will contain the WAV file's header info.
@@ -669,40 +671,35 @@ public class JWav {
 				throw new Exception("WavHeader Constructor Error: tempAllWavData is empty.");
 			}
 			
-			try {
-				System.out.println("WavHeader Constructor");
-				System.out.println("Total Wav Length is: " + tempAllWavData.length);
-				
-				allHeaderBytes = new byte[12];
-				
-				// Set chunkID
-				chunkID = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					chunkID[i] = tempAllWavData[i];
-					allHeaderBytes[i] = tempAllWavData[i];
-				}
-
-				// Grab the size of the WAV file
-				chunkSize = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					chunkSize[i] = tempAllWavData[i + 4];
-					allHeaderBytes[i + 4] = tempAllWavData[i + 4];
-				}
-				
-				// Grab the format of the file. Should be "WAVE"
-				format = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					format[i] = tempAllWavData[i + 8];
-					allHeaderBytes[i + 8] = tempAllWavData[i + 8];
-				}
-				
-				// Set allHeaderData
-				for (int i = 0; i < 12; i++) {
-					allHeaderBytes[i] = tempAllWavData[i];
-				}
+			System.out.println("WavHeader Constructor");
+			System.out.println("Total Wav Length is: " + tempAllWavData.length);
+			
+			allHeaderBytes = new byte[12];
+			
+			// Set chunkID
+			chunkID = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				chunkID[i] = tempAllWavData[i];
+				allHeaderBytes[i] = tempAllWavData[i];
 			}
-			catch (Exception e) {
-				System.out.println("WavHeader Error: " + e.getMessage());
+
+			// Grab the size of the WAV file
+			chunkSize = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				chunkSize[i] = tempAllWavData[i + 4];
+				allHeaderBytes[i + 4] = tempAllWavData[i + 4];
+			}
+			
+			// Grab the format of the file. Should be "WAVE"
+			format = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				format[i] = tempAllWavData[i + 8];
+				allHeaderBytes[i + 8] = tempAllWavData[i + 8];
+			}
+			
+			// Set allHeaderData
+			for (int i = 0; i < 12; i++) {
+				allHeaderBytes[i] = tempAllWavData[i];
 			}
 		}
 		
@@ -738,32 +735,27 @@ public class JWav {
 			return format;
 		}
 		
-		public void display () {
-			try {
-				if (chunkID == null) {
-					throw new Exception("chunkID is null");
-				}
-				
-				System.out.println("HEADER CHUNK CONTENTS:");
-				System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
-				
-				if (chunkSize == null) {
-					throw new Exception("chunkSize is null");
-				}
-				
-				ByteBuffer bb = ByteBuffer.wrap(chunkSize);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				System.out.println("chunkSize is: " + bb.getInt());
-				
-				if (format == null) {
-					throw new Exception("format is null");
-				}
-				
-				System.out.println("format is: " + new String(format, "UTF-8"));
+		public void display() throws Exception {
+			if (chunkID == null) {
+				throw new Exception("chunkID is null");
 			}
-			catch (Exception e) {
-				System.out.println("WavHeader.display Error: " + e.getMessage());
+			
+			System.out.println("HEADER CHUNK CONTENTS:");
+			System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
+			
+			if (chunkSize == null) {
+				throw new Exception("chunkSize is null");
 			}
+			
+			ByteBuffer bb = ByteBuffer.wrap(chunkSize);
+			bb.order(ByteOrder.LITTLE_ENDIAN);
+			System.out.println("chunkSize is: " + bb.getInt());
+			
+			if (format == null) {
+				throw new Exception("format is null");
+			}
+			
+			System.out.println("format is: " + new String(format, "UTF-8"));
 		}
 	}
 	
@@ -790,68 +782,62 @@ public class JWav {
 				throw new Exception("WavFormatChunk Constructor Error: tempAllWavData is empty.");
 			}
 			
-			try {
-				allFormatBytes = new byte[24];
-				
-				// Set chunkID
-				chunkID = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					chunkID[i] = tempAllWavData[i + 12];
-					allFormatBytes[i] = tempAllWavData[i + 12];
-				}
-
-				// Set chunkSize
-				chunkSize = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					chunkSize[i] = tempAllWavData[i + 16];
-					allFormatBytes[i + 4] = tempAllWavData[i + 16];
-				}
-				
-				// Set audioFormat
-				audioFormat = new byte[4];
-				for (int i = 0; i < 2; i++) {
-					audioFormat[i] = tempAllWavData[i + 20];
-					allFormatBytes[i + 8] = tempAllWavData[i + 20];
-				}
-				
-				// Set numChannels
-				numChannels = new byte[4];
-				for (int i = 0; i < 2; i++) {
-					numChannels[i] = tempAllWavData[i + 22];
-					allFormatBytes[i + 10] = tempAllWavData[i + 22];
-				}
-				
-				// Set sampleRate
-				sampleRate = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					sampleRate[i] = tempAllWavData[i + 24];
-					allFormatBytes[i + 12] = tempAllWavData[i + 24];
-				}
-				
-				// Set byteRate
-				byteRate = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					byteRate[i] = tempAllWavData[i + 28];
-					allFormatBytes[i + 16] = tempAllWavData[i + 28];
-				}
-				
-				// Set blockAlign
-				blockAlign = new byte[4];
-				for (int i = 0; i < 2; i++) {
-					blockAlign[i] = tempAllWavData[i + 32];
-					allFormatBytes[i + 20] = tempAllWavData[i + 32];
-				}
-				
-				// Set bitsPerSample
-				bitsPerSample = new byte[4];
-				for (int i = 0; i < 2; i++) {
-					bitsPerSample[i] = tempAllWavData[i + 34];
-					allFormatBytes[i + 22] = tempAllWavData[i + 34];
-				}
-				
+			allFormatBytes = new byte[24];
+			
+			// Set chunkID
+			chunkID = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				chunkID[i] = tempAllWavData[i + 12];
+				allFormatBytes[i] = tempAllWavData[i + 12];
 			}
-			catch (Exception e) {
-				System.out.println("Error WavFormatChunk: " + e.getMessage());
+
+			// Set chunkSize
+			chunkSize = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				chunkSize[i] = tempAllWavData[i + 16];
+				allFormatBytes[i + 4] = tempAllWavData[i + 16];
+			}
+			
+			// Set audioFormat
+			audioFormat = new byte[4];
+			for (int i = 0; i < 2; i++) {
+				audioFormat[i] = tempAllWavData[i + 20];
+				allFormatBytes[i + 8] = tempAllWavData[i + 20];
+			}
+			
+			// Set numChannels
+			numChannels = new byte[4];
+			for (int i = 0; i < 2; i++) {
+				numChannels[i] = tempAllWavData[i + 22];
+				allFormatBytes[i + 10] = tempAllWavData[i + 22];
+			}
+			
+			// Set sampleRate
+			sampleRate = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				sampleRate[i] = tempAllWavData[i + 24];
+				allFormatBytes[i + 12] = tempAllWavData[i + 24];
+			}
+			
+			// Set byteRate
+			byteRate = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				byteRate[i] = tempAllWavData[i + 28];
+				allFormatBytes[i + 16] = tempAllWavData[i + 28];
+			}
+			
+			// Set blockAlign
+			blockAlign = new byte[4];
+			for (int i = 0; i < 2; i++) {
+				blockAlign[i] = tempAllWavData[i + 32];
+				allFormatBytes[i + 20] = tempAllWavData[i + 32];
+			}
+			
+			// Set bitsPerSample
+			bitsPerSample = new byte[4];
+			for (int i = 0; i < 2; i++) {
+				bitsPerSample[i] = tempAllWavData[i + 34];
+				allFormatBytes[i + 22] = tempAllWavData[i + 34];
 			}
 		}
 		
@@ -927,60 +913,55 @@ public class JWav {
 			return bitsPerSample;
 		}
 		
-		public void display () {
-			try {
-				System.out.println("FORMAT CHUNK CONTENTS:");
-				
-				if (chunkID == null) {
-					throw new Exception("chunkID is null");
-				}
-				if (audioFormat == null) {
-					throw new Exception("audioFormat is null");
-				}
-				
-				if (numChannels == null) {
-					throw new Exception("numChannels is null");
-				}
-				
-				if (sampleRate == null) {
-					throw new Exception("sampleRate is null");
-				}
-				
-				if (byteRate == null) {
-					throw new Exception("byteRate is null");
-				}
-				
-				if (blockAlign == null) {
-					throw new Exception("blockAlign is null");
-				}
-								
-				if (bitsPerSample == null) {
-					throw new Exception("bitsPerSample is null");
-				}
-								
-				System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
-				
-				int tempChunkSize = ByteBuffer.wrap(chunkSize).order(ByteOrder.LITTLE_ENDIAN).getInt();
-				int tempAudioFormat = ByteBuffer.wrap(audioFormat).order(ByteOrder.LITTLE_ENDIAN).getInt();
-				int tempNumChannels = ByteBuffer.wrap(numChannels).order(ByteOrder.LITTLE_ENDIAN).getInt();
-				int tempSampleRate = ByteBuffer.wrap(sampleRate).order(ByteOrder.LITTLE_ENDIAN).getInt();
-				int tempByteRate = ByteBuffer.wrap(byteRate).order(ByteOrder.LITTLE_ENDIAN).getInt();
-				int tempBlockAlign = ByteBuffer.wrap(blockAlign).order(ByteOrder.LITTLE_ENDIAN).getInt();
-				int tempBitsPerSample = ByteBuffer.wrap(bitsPerSample).order(ByteOrder.LITTLE_ENDIAN).getInt();
-				int expectedByteRate = tempSampleRate * tempNumChannels * tempBitsPerSample / 8;
-				
-				System.out.println("chunkSize is: " + tempChunkSize);
-				System.out.println("audioFormat is: " + tempAudioFormat);
-				System.out.println("numChannels is: " + tempNumChannels);
-				System.out.println("sampleRate is: " + tempSampleRate);
-				System.out.println("byteRate is: " + tempByteRate);
-				System.out.println("byteRate should be: " + expectedByteRate);
-				System.out.println("blockAlign is: " + tempBlockAlign);
-				System.out.println("bitsPerSample is: " + tempBitsPerSample);
+		public void display () throws Exception {
+			System.out.println("FORMAT CHUNK CONTENTS:");
+			
+			if (chunkID == null) {
+				throw new Exception("chunkID is null");
 			}
-			catch (Exception e) {
-				System.out.println("WavFormatChunk.display Error: " + e.getMessage());
+			if (audioFormat == null) {
+				throw new Exception("audioFormat is null");
 			}
+			
+			if (numChannels == null) {
+				throw new Exception("numChannels is null");
+			}
+			
+			if (sampleRate == null) {
+				throw new Exception("sampleRate is null");
+			}
+			
+			if (byteRate == null) {
+				throw new Exception("byteRate is null");
+			}
+			
+			if (blockAlign == null) {
+				throw new Exception("blockAlign is null");
+			}
+							
+			if (bitsPerSample == null) {
+				throw new Exception("bitsPerSample is null");
+			}
+							
+			System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
+			
+			int tempChunkSize = ByteBuffer.wrap(chunkSize).order(ByteOrder.LITTLE_ENDIAN).getInt();
+			int tempAudioFormat = ByteBuffer.wrap(audioFormat).order(ByteOrder.LITTLE_ENDIAN).getInt();
+			int tempNumChannels = ByteBuffer.wrap(numChannels).order(ByteOrder.LITTLE_ENDIAN).getInt();
+			int tempSampleRate = ByteBuffer.wrap(sampleRate).order(ByteOrder.LITTLE_ENDIAN).getInt();
+			int tempByteRate = ByteBuffer.wrap(byteRate).order(ByteOrder.LITTLE_ENDIAN).getInt();
+			int tempBlockAlign = ByteBuffer.wrap(blockAlign).order(ByteOrder.LITTLE_ENDIAN).getInt();
+			int tempBitsPerSample = ByteBuffer.wrap(bitsPerSample).order(ByteOrder.LITTLE_ENDIAN).getInt();
+			int expectedByteRate = tempSampleRate * tempNumChannels * tempBitsPerSample / 8;
+			
+			System.out.println("chunkSize is: " + tempChunkSize);
+			System.out.println("audioFormat is: " + tempAudioFormat);
+			System.out.println("numChannels is: " + tempNumChannels);
+			System.out.println("sampleRate is: " + tempSampleRate);
+			System.out.println("byteRate is: " + tempByteRate);
+			System.out.println("byteRate should be: " + expectedByteRate);
+			System.out.println("blockAlign is: " + tempBlockAlign);
+			System.out.println("bitsPerSample is: " + tempBitsPerSample);
 		}
 	}
 	
@@ -1002,41 +983,41 @@ public class JWav {
 				throw new Exception("WavDataChunk Constructor Error: tempAllWavData is empty.");
 			}
 			
-			try {
-				// Set chunkID
-				chunkID = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					chunkID[i] = tempAllWavData[i + 36];
-				}
-
-				// Set chunkSize
-				chunkSize = new byte[4];
-				for (int i = 0; i < 4; i++) {
-					chunkSize[i] = tempAllWavData[i + 40];
-				}
-				
-				int numDataBytes = ByteBuffer.wrap(chunkSize).order(ByteOrder.LITTLE_ENDIAN).getInt();
-				
-				// Make sure chunkSize is right
-				if (numDataBytes != (tempAllWavData.length - 44)) {
-					throw new Exception("Aaaaah! chunkSize isn't what it should be!");
-				}
-				
-				// Set data
-				data = new byte[numDataBytes];
-				for (int i = 0; i < numDataBytes; i++) {
-					data[i] = tempAllWavData[i + 44];
-				}
-				
-				// Set allDataChunkBytes
-				int totalBytesToRead = 8 + numDataBytes;
-				allDataChunkBytes = new byte[totalBytesToRead];
-				for (int i = 0; i < totalBytesToRead; i++) {
-					allDataChunkBytes[i] = tempAllWavData[i + 36];
-				}
+			// Set chunkID
+			chunkID = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				chunkID[i] = tempAllWavData[i + 36];
 			}
-			catch (Exception e) {
-				System.out.println("WavData Chunk Error: " + e.getMessage());
+			
+			String tempChunkID = new String(chunkID, "UTF-8");
+			if (!tempChunkID.equals("data")) {
+				throw new Exception("WavDataChunk Constructor Error: chunkID is not 'data'.");
+			}
+
+			// Set chunkSize
+			chunkSize = new byte[4];
+			for (int i = 0; i < 4; i++) {
+				chunkSize[i] = tempAllWavData[i + 40];
+			}
+			
+			int numDataBytes = ByteBuffer.wrap(chunkSize).order(ByteOrder.LITTLE_ENDIAN).getInt();
+			
+			// Make sure chunkSize is right
+			if (numDataBytes != (tempAllWavData.length - 44)) {
+				throw new Exception("Aaaaah! chunkSize isn't what it should be!");
+			}
+			
+			// Set data
+			data = new byte[numDataBytes];
+			for (int i = 0; i < numDataBytes; i++) {
+				data[i] = tempAllWavData[i + 44];
+			}
+			
+			// Set allDataChunkBytes
+			int totalBytesToRead = 8 + numDataBytes;
+			allDataChunkBytes = new byte[totalBytesToRead];
+			for (int i = 0; i < totalBytesToRead; i++) {
+				allDataChunkBytes[i] = tempAllWavData[i + 36];
 			}
 		}
 		
@@ -1084,26 +1065,21 @@ public class JWav {
 			}
 		}
 		
-		public void display () {
-			try {
-				if (chunkID == null) {
-					throw new Exception("chunkID is null");
-				}
-				
-				System.out.println("DATA CHUNK CONTENTS:");
-				System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
-				
-				if (chunkSize == null) {
-					throw new Exception("chunkSize is null");
-				}
-				
-				ByteBuffer bb = ByteBuffer.wrap(chunkSize);
-				bb.order(ByteOrder.LITTLE_ENDIAN);
-				System.out.println("chunkSize is: " + bb.getInt());
+		public void display () throws Exception {
+			if (chunkID == null) {
+				throw new Exception("chunkID is null");
 			}
-			catch (Exception e) {
-				System.out.println("WavDataChunk.display Error: " + e.getMessage());
+			
+			System.out.println("DATA CHUNK CONTENTS:");
+			System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
+			
+			if (chunkSize == null) {
+				throw new Exception("chunkSize is null");
 			}
+			
+			ByteBuffer bb = ByteBuffer.wrap(chunkSize);
+			bb.order(ByteOrder.LITTLE_ENDIAN);
+			System.out.println("chunkSize is: " + bb.getInt());
 		}
 	}
 }
