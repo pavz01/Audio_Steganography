@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 
  */
 package classes;
@@ -56,6 +56,7 @@ public class JWav {
 	public JWav () {
 		// Set directory that Open File dialogue window will begin
 		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
+//		fc = new JFileChooser();
 		
 		// Create and use a filter to only accept .wav files
 		FileNameExtensionFilter filter = new FileNameExtensionFilter(
@@ -63,23 +64,21 @@ public class JWav {
 		fc.setFileFilter(filter);
 		fc.setAcceptAllFileFilterUsed(false);
 		validWavFile = false;
-
-		// Initialize "hasInjectedMessage" to TRUE or FALSE
-		checkForInjectedMessage();
 	}
 
 	// Copy Constructor: JWav(JWav original)
-	// TO-DO: May need updating. Compare to changes made to initialize() and fit accordingly
 	public JWav (JWav originalJWav) throws Exception {
-		System.out.println("Stub for JWav copy constructor.");
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Stub for JWav copy constructor.");
 		
 		file = originalJWav.getFile();
 		
-		if (!file.canExecute()) {
+		if (file.exists() && !file.canExecute()) {
 			throw new Exception("Error: File either does not exist or can not execute");
 		}
 		
 		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
+//		fc = new JFileChooser();
 		
 		// Create and use a filter to only accept .wav files
 		FileNameExtensionFilter filter = new FileNameExtensionFilter(
@@ -184,7 +183,8 @@ public class JWav {
 	// Function: readWavBytes
 	// Description: Will read in the WAV file's data into a byte array
 	public void readWavBytes () throws Exception {
-		System.out.println("Called readWavBytes()");
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Called readWavBytes()");
 		
 		if ( (file == null) || !file.exists() ) {
 			throw new Exception("readWavBytes Error: file is either null or doesn't exist.");
@@ -224,32 +224,41 @@ public class JWav {
 	//              The file will be an exact copy of the WAV file that is
 	//              referred to in the "file" member variable.
 	public void copyWavFile() throws Exception {
-		System.out.println("Called copyWavFile()");
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Called copyWavFile()");
 		
 		// Grab the file the user selected/input to save to
 		File destFile = fc.getSelectedFile();
 		
-		System.out.print("File ");
+		// KEEP THIS FOR DEBUGGING
+//		System.out.print("File ");
 		
 		// Overwrite the selected WAV file
 		if (destFile.exists()) {
-			System.out.println(" exists.");
+			// KEEP THIS FOR DEBUGGING
+//			System.out.println(" exists.");
+//			System.out.println("Overwriting file.");
 			
-			System.out.println("Overwriting file.");
 			Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-			System.out.println("File overwritten.");
+			
+			// KEEP THIS FOR DEBUGGING
+//			System.out.println("File overwritten.");
 		}
 		// Create a new WAV file
 		else {
-			System.out.println(" does not exist.");
-			System.out.println("Looks like we're going to create this new file.");
+			// KEEP THIS FOR DEBUGGING
+//			System.out.println(" does not exist.");
+//			System.out.println("Looks like we're going to create this new file.");
+			
 			String destFileName = destFile.getName();
 			if (!destFileName.endsWith(".wav")) {
 				destFile = new File(destFile.getPath() + ".wav");
 			}
 			
 			Files.copy(file.toPath(), destFile.toPath());
-			System.out.println("File created.");
+			
+			// KEEP THIS FOR DEBUGGING
+//			System.out.println("File created.");
 		}
 		
 		// Next, point to our newly saved WAV file
@@ -286,17 +295,19 @@ public class JWav {
 	// Function: encryptMessage (String, char[])
 	// Description: Will use the user-provided password and encrypt the
 	//              user-provided message.
-	// The plan is to create a byte[] that has the following contents:
+	// Plan: Create a byte[] that has the following contents:
 	//    #[number of characters in message to be hidden]#[encrypted message to be hidden][encrypted padding of '#'s if necessary]
 	//    For example, for a message of "hello world": #11#[encrypted form of 'hello world#####']
 	public void encryptMessage (String tempMessage, char[] guiPassword) throws Exception {
-		System.out.println("Called encryptMessage function.");
-		
-		System.out.println("Message is: " + tempMessage);
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Called encryptMessage function.");
+//		System.out.println("Message is: " + tempMessage);
 
 		// Create the '#[number of characters in message to be hidden]#' portion of our byte array
 		byte[] unencryptedBytes = new String("#" + tempMessage.length() + "#").getBytes("UTF-8");
-		System.out.println("unencryptedBytes is: " + new String(unencryptedBytes, "UTF-8")); // For debugging purposes
+		
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("unencryptedBytes is: " + new String(unencryptedBytes, "UTF-8"));
 		
 		// Add any necessary padding to the user-provided password
 		String tempPassword = new String(guiPassword);
@@ -324,7 +335,8 @@ public class JWav {
 		// Create the encrypted portion. Ex/ [encrypted form of 'hello world#####']
 		byte[] encryptedBytes = cipher.doFinal(tempMessage.getBytes("UTF-8"));
 		
-		System.out.println("Encrypted message is: " + new String(encryptedBytes, "UTF-8"));
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Encrypted message is: " + new String(encryptedBytes, "UTF-8"));
 		
 		message = new byte[unencryptedBytes.length + encryptedBytes.length];
 		System.arraycopy(unencryptedBytes, 0, message, 0, unencryptedBytes.length);
@@ -332,9 +344,9 @@ public class JWav {
 		
 		
 		// KEEP THIS FOR DEBUGGING
-		cipher.init(Cipher.DECRYPT_MODE, secretKey);
-		byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-		System.out.println("Decrypted message is: " + new String(decryptedBytes, "UTF-8"));
+//		cipher.init(Cipher.DECRYPT_MODE, secretKey);
+//		byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+//		System.out.println("Decrypted message is: " + new String(decryptedBytes, "UTF-8"));
 
 	}
 
@@ -344,7 +356,8 @@ public class JWav {
 	//              password the user provided to decrypt the message
 	//              whether it is the right password or not.
 	public void decryptMessage (char [] guiPassword) throws Exception {
-		System.out.println("Called decryptMessage function.");
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Called decryptMessage function.");
 		
 		byte poundByte = (byte) 0x23;
 		// This will be used to determine what character is potentially hidden
@@ -427,7 +440,7 @@ public class JWav {
 		int sizeCharacters = Integer.parseInt(numCharacters);
 		int sizeMessagePadding = 0;
 		
-		// must add '#' padding to message. WORKING HERE!!!
+		// must add '#' padding to message.
 		while ( (sizeCharacters % 16) != 0 ) {
 			sizeCharacters++;
 			sizeMessagePadding++;
@@ -437,7 +450,7 @@ public class JWav {
 		tempByte = 0;
 		maskByte = maskReset;
 		
-		// Use this for extracting the encrypted bytes. WORKING HERE NOW
+		// Use this for extracting the encrypted bytes.
 		for (int i = 0, j = 8 * byteOffset * (numCharacters.length() + 2); i < sizeCharacters; j = j + byteOffset) {
 			// Determine if the current bit for the current character is a one
 			if ( (tempData[j] & maskOne) == maskOne) {
@@ -465,8 +478,8 @@ public class JWav {
 			}
 		}
 		
-		// Message is correct so far
-		System.out.println("encrypted message is: " + new String(message, "UTF-8"));
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("encrypted message is: " + new String(message, "UTF-8"));
 		
 		// Add any necessary padding to the user-provided password
 		String tempPassword = new String(guiPassword);
@@ -499,13 +512,15 @@ public class JWav {
 			message[i] = tempMessage[i];
 		}
 		
-		System.out.println("Decrypted message is: " + new String(message, "UTF-8"));
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Decrypted message is: " + new String(message, "UTF-8"));
 	}
 	
 	// Function: injectMessage
 	// Description: Will inject the "message" into the WAV file.
 	public void injectMessage() throws Exception {
-		System.out.println("Called injectEncryptedMessage function.");
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Called injectEncryptedMessage function.");
 		
 		if (message == null) {
 			throw new Exception("injectMessage Error: message is null.");
@@ -583,7 +598,9 @@ public class JWav {
 		FileOutputStream fop = new FileOutputStream(file);
 		fop.write(compileNewWavData());
 		fop.close();
-		System.out.println("Message Injected.");
+		
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Message Injected.");
 	}
 	
 	public byte[] compileNewWavData() throws Exception {
@@ -592,9 +609,9 @@ public class JWav {
 		int wavHeaderChunkSize = bb.getInt();
 		byte[] tempBytes = new byte[wavHeaderChunkSize + 8];
 		
-		byte[] tempWavHeaderBytes = wavHeaderChunk.getAllHeaderBytes(); // Cleared for takeoff
-		byte[] tempWavFormatBytes = wavFormatChunk.getAllFormatBytes(); // Cleared for takeoff
-		byte[] tempWavDataBytes = wavDataChunk.getAllDataChunkBytes(); // Cleared, I think...
+		byte[] tempWavHeaderBytes = wavHeaderChunk.getAllHeaderBytes();
+		byte[] tempWavFormatBytes = wavFormatChunk.getAllFormatBytes();
+		byte[] tempWavDataBytes = wavDataChunk.getAllDataChunkBytes();
 		
 		int sizeHeaderBytes = tempWavHeaderBytes.length;
 		int sizeFormatBytes = tempWavFormatBytes.length;
@@ -610,14 +627,18 @@ public class JWav {
 	// Function: hasValidWavFile
 	// Description: A getter function that returns "hasValidWavFile"
 	public Boolean hasValidWavFile() {
-		System.out.println("Called hasValidWavFile function.");
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Called hasValidWavFile function.");
+		
 		return validWavFile;
 	}
 
 	// Function: hasHiddenMessage
 	// Description: A getter function that returns "hasInjectedMessage"
 	public Boolean hasHiddenMessage() {
-		System.out.println("Called hasHiddenMessage function.");
+		// KEEP THIS FOR DEBUGGING
+//		System.out.println("Called hasHiddenMessage function.");
+		
 		return hasInjectedMessage;
 	}
 
@@ -636,24 +657,27 @@ public class JWav {
 		}
 	}
 
+	// Function: pause
+	// Description: Will pause the WAV file
+	public void pause () {
+		// Check for valid wav file
+		if (validWavFile) {
+			// Stops and resets the frame position to 0 for the audio file.
+			audioClip.stop();
+		}
+	}
+
 	// Function: stop
 	// Description: Will stop the WAV file
 	public void stop () {
 		// Check for valid wav file
 		if (validWavFile) {
-			// Stop the audio file. Will do nothing if already stopped.
+			// Stops and resets the frame position to 0 for the audio file.
 			audioClip.stop();
+			audioClip.setFramePosition(0);
 		}
 	}
 
-	// Function: checkforInjectedMessage
-	// Description: Will check the WAV file's data and check if it
-	//              contains an injected message. Then it will set
-	//              "hasInjectedMessage" to TRUE or FALSE.
-	public void checkForInjectedMessage () {
-		System.out.println("Called hasValidWavFile function.");
-	}
-	
 	// ------ INNER CLASSES ------
 	// Class: WavHeader
 	// Description: Will contain the WAV file's header info.
@@ -671,8 +695,9 @@ public class JWav {
 				throw new Exception("WavHeader Constructor Error: tempAllWavData is empty.");
 			}
 			
-			System.out.println("WavHeader Constructor");
-			System.out.println("Total Wav Length is: " + tempAllWavData.length);
+			// KEEP THIS FOR DEBUGGING
+//			System.out.println("WavHeader Constructor");
+//			System.out.println("Total Wav Length is: " + tempAllWavData.length);
 			
 			allHeaderBytes = new byte[12];
 			
@@ -681,6 +706,10 @@ public class JWav {
 			for (int i = 0; i < 4; i++) {
 				chunkID[i] = tempAllWavData[i];
 				allHeaderBytes[i] = tempAllWavData[i];
+			}			
+			String tempChunkID = new String(chunkID, "UTF-8");
+			if (!tempChunkID.equals("RIFF")) {
+				throw new Exception("WavHeader Constructor Error: WAV file isn't a 'RIFF' type.");
 			}
 
 			// Grab the size of the WAV file
@@ -689,12 +718,21 @@ public class JWav {
 				chunkSize[i] = tempAllWavData[i + 4];
 				allHeaderBytes[i + 4] = tempAllWavData[i + 4];
 			}
+			ByteBuffer tempChunkSize = ByteBuffer.wrap(chunkSize);
+			tempChunkSize.order(ByteOrder.LITTLE_ENDIAN);
+			if (tempChunkSize.getInt() <= 0) {
+				throw new Exception("WavHeader Constructor Error: WAV file size is either 0 or malformed.");
+			}
 			
 			// Grab the format of the file. Should be "WAVE"
 			format = new byte[4];
 			for (int i = 0; i < 4; i++) {
 				format[i] = tempAllWavData[i + 8];
 				allHeaderBytes[i + 8] = tempAllWavData[i + 8];
+			}
+			String tempFormat = new String(format, "UTF-8");
+			if (!tempFormat.equals("WAVE")) {
+				throw new Exception("WavHeader Constructor Error: WAV file isn't a 'WAVE' type.");
 			}
 			
 			// Set allHeaderData
@@ -705,7 +743,7 @@ public class JWav {
 		
 		public byte[] getAllHeaderBytes() throws Exception {
 			if (allHeaderBytes == null) {
-				throw new Exception("Error: allHeaderBytes is null");
+				throw new Exception("WavHeader Constructor Error: allHeaderBytes is null");
 			}
 			
 			return allHeaderBytes;
@@ -713,7 +751,7 @@ public class JWav {
 		
 		public byte[] getChunkID() throws Exception {
 			if (chunkID == null) {
-				throw new Exception("Error: chunkID is null");
+				throw new Exception("WavHeader Constructor Error: chunkID is null");
 			}
 			
 			return chunkID;
@@ -721,7 +759,7 @@ public class JWav {
 		
 		public byte[] getChunkSize() throws Exception {
 			if (chunkSize == null) {
-				throw new Exception("Error: chunkSize is null");
+				throw new Exception("WavHeader Constructor Error: chunkSize is null");
 			}
 			
 			return chunkSize;
@@ -729,7 +767,7 @@ public class JWav {
 		
 		public byte[] getFormat() throws Exception {
 			if (format == null) {
-				throw new Exception("Error: format is null");
+				throw new Exception("WavHeader Constructor Error: format is null");
 			}
 			
 			return format;
@@ -737,14 +775,14 @@ public class JWav {
 		
 		public void display() throws Exception {
 			if (chunkID == null) {
-				throw new Exception("chunkID is null");
+				throw new Exception("WavHeader Constructor Error: chunkID is null");
 			}
 			
 			System.out.println("HEADER CHUNK CONTENTS:");
 			System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
 			
 			if (chunkSize == null) {
-				throw new Exception("chunkSize is null");
+				throw new Exception("WavHeader Constructor Error: chunkSize is null");
 			}
 			
 			ByteBuffer bb = ByteBuffer.wrap(chunkSize);
@@ -752,7 +790,7 @@ public class JWav {
 			System.out.println("chunkSize is: " + bb.getInt());
 			
 			if (format == null) {
-				throw new Exception("format is null");
+				throw new Exception("WavHeader Constructor Error: format is null");
 			}
 			
 			System.out.println("format is: " + new String(format, "UTF-8"));
@@ -776,7 +814,8 @@ public class JWav {
 		// ------ CONSTRUCTORS ------
 		// Constructor: WavFormatChunk(byte[])
 		public WavFormatChunk (byte[] tempAllWavData) throws Exception {
-			System.out.println("WavFormatChunk Constructor");
+			// KEEP THIS FOR DEBUGGING
+//			System.out.println("WavFormatChunk Constructor");
 			
 			if (tempAllWavData == null) {
 				throw new Exception("WavFormatChunk Constructor Error: tempAllWavData is empty.");
@@ -790,12 +829,21 @@ public class JWav {
 				chunkID[i] = tempAllWavData[i + 12];
 				allFormatBytes[i] = tempAllWavData[i + 12];
 			}
+			String tempChunkID = new String(chunkID, "UTF-8");
+			if (!tempChunkID.equals("fmt ")) {
+				throw new Exception("WavFormatChunk Constructor Error: WAV file isn't a 'fmt ' type.");
+			}
 
 			// Set chunkSize
 			chunkSize = new byte[4];
 			for (int i = 0; i < 4; i++) {
 				chunkSize[i] = tempAllWavData[i + 16];
 				allFormatBytes[i + 4] = tempAllWavData[i + 16];
+			}
+			ByteBuffer tempChunkSize = ByteBuffer.wrap(chunkSize);
+			tempChunkSize.order(ByteOrder.LITTLE_ENDIAN);
+			if (tempChunkSize.getInt() <= 0) {
+				throw new Exception("WavFormatChunk Constructor Error: WAV format chunk's size is either 0 or malformed.");
 			}
 			
 			// Set audioFormat
@@ -977,7 +1025,8 @@ public class JWav {
 		// ------ CONSTRUCTORS ------
 		// Constructor: WavDataChunk(byte[])
 		public WavDataChunk (byte[] tempAllWavData) throws Exception {
-			System.out.println("WavDataChunk Constructor");
+			// KEEP THIS FOR DEBUGGING
+//			System.out.println("WavDataChunk Constructor");
 			
 			if (tempAllWavData == null) {
 				throw new Exception("WavDataChunk Constructor Error: tempAllWavData is empty.");
@@ -989,6 +1038,7 @@ public class JWav {
 				chunkID[i] = tempAllWavData[i + 36];
 			}
 			
+			// Validate chunkID
 			String tempChunkID = new String(chunkID, "UTF-8");
 			if (!tempChunkID.equals("data")) {
 				throw new Exception("WavDataChunk Constructor Error: chunkID is not 'data'.");
@@ -1000,11 +1050,12 @@ public class JWav {
 				chunkSize[i] = tempAllWavData[i + 40];
 			}
 			
+			// Validate chunkSize
 			int numDataBytes = ByteBuffer.wrap(chunkSize).order(ByteOrder.LITTLE_ENDIAN).getInt();
 			
 			// Make sure chunkSize is right
 			if (numDataBytes != (tempAllWavData.length - 44)) {
-				throw new Exception("Aaaaah! chunkSize isn't what it should be!");
+				throw new Exception("WavDataChunk Constructor Error: Aaaaah! chunkSize isn't what it should be!");
 			}
 			
 			// Set data
