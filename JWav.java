@@ -162,6 +162,22 @@ public class JWav {
 	}
 
 	// ------ OTHER FUNCTIONS ------
+	// Function: closeStreams
+	// Description: Closes the streams relating to the file and allows
+	//              them to be used later on.
+	public void closeStreams() throws Exception{
+		if (buffInStream != null) {
+			buffInStream.close();
+			buffInStream = null;
+		}
+		if (audioStream != null) {
+			audioStream.close();
+			audioStream = null;
+		}
+		
+		System.gc();
+	}
+	
 	// Function: isUsingAudioResources
 	// Description: Returns if the JWav is currently using audio resources
 	public Boolean isUsingAudioResources() {
@@ -328,8 +344,10 @@ public class JWav {
 		cipher.init(Cipher.ENCRYPT_MODE,  secretKey);
 		
 		// Add padding to the user-provided message. Ex/ 'hello world' -> 'hello world#####'
-		for (int i = tempMessage.length(); (i % 16) != 0; i++) {
-			tempMessage += "#";
+//		for (int i = tempMessage.length(); (i % 16) != 0; i++) {
+//			tempMessage += "#";
+		for (int i = tempMessage.length(); (i % 304) != 0; i++) {
+			tempMessage += " ";
 		}
 
 		// Create the encrypted portion. Ex/ [encrypted form of 'hello world#####']
@@ -441,7 +459,8 @@ public class JWav {
 		int sizeMessagePadding = 0;
 		
 		// must add '#' padding to message.
-		while ( (sizeCharacters % 16) != 0 ) {
+//		while ( (sizeCharacters % 16) != 0 ) {
+		while ( (sizeCharacters % 304) != 0 ) {
 			sizeCharacters++;
 			sizeMessagePadding++;
 		}
@@ -497,7 +516,7 @@ public class JWav {
 		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
 		cipher.init(Cipher.DECRYPT_MODE, secretKey);
 		message = cipher.doFinal(message);
-
+/*
 		int messageLength = message.length;
 		byte[] tempMessage = new byte[messageLength];
 		
@@ -511,7 +530,7 @@ public class JWav {
 		for (int i = 0; i < count; i++) {
 			message[i] = tempMessage[i];
 		}
-		
+*/		
 		// KEEP THIS FOR DEBUGGING
 //		System.out.println("Decrypted message is: " + new String(message, "UTF-8"));
 	}
