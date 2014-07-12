@@ -121,7 +121,10 @@ public class Audio_Steganography_Driver extends JPanel
 			myJWav.releaseAudioResources();
 		}
 		
+		myJWav.closeStreams();
+		
 		playPauseButton.setEnabled(false);
+		playPauseButton.setText("<html><b>Play</b></html>");
 		stopButton.setEnabled(false);
 		myJWav = new JWav();
 		resetMessageAndPassword();
@@ -144,7 +147,7 @@ public class Audio_Steganography_Driver extends JPanel
 		return true;
 	}
 	
-	public void togglePlayPauseButton() throws Exception {
+	public void togglePlayPause() throws Exception {
 		// User wants to play the WAV file
 		if (playPauseButton.getText().equals("<html><b>Play</b></html>")) {
 			playPauseButton.setText("<html><b>Pause</b></html>");
@@ -478,7 +481,7 @@ public class Audio_Steganography_Driver extends JPanel
 			if (myJWav.hasValidWavFile()) {
 				// Play the audio file
 				try {
-					togglePlayPauseButton();
+					togglePlayPause();
 				}
 				catch (Exception e) {
 					// KEEP THIS FOR DEBUGGING
