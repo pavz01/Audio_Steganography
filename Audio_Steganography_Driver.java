@@ -10,6 +10,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
 
 import classes.JWav;
+import classes.JWav.WAVException;
 import components.LimitedPlainDocument;
 
 /**
@@ -27,6 +28,7 @@ public class Audio_Steganography_Driver extends JPanel
 	// GUI Components
 	JFrame frame;
 	JPanel mainPanel, subPanel1, subPanel2, subPanel3, subPanel4, subPanel5, subPanel6;
+	JScrollPane scrollPane;
 	JLabel modeLabel, fileLabel, filePathLabel, passwordLabel, audioLabel, actionsLabel;
 	JButton fcButton, goButton, resetButton, playPauseButton, stopButton;
 	JPasswordField passwordField;
@@ -60,6 +62,9 @@ public class Audio_Steganography_Driver extends JPanel
 		if (isNullOrWhitespace(message)) {
 			throw new Exception("Error: 'message' is empty.");
 		}
+		
+		// first clear out the message area
+		messageTextArea.setText(null);
 		
 		// place message in "decryptSecretMessage"
 		messageTextArea.setText(message);
@@ -186,7 +191,7 @@ public class Audio_Steganography_Driver extends JPanel
 		subPanel4 = new JPanel(); // Fourth subcontainer
 		subPanel5 = new JPanel(); // Fifth subcontainer
 		subPanel6 = new JPanel(); // Sixth subcontainer
-
+		
 		// Customize layout for all panels
 		mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.PAGE_AXIS));
 
@@ -230,6 +235,7 @@ public class Audio_Steganography_Driver extends JPanel
 		messageTextArea.setWrapStyleWord(true);
 		messageTextArea.setDocument(new LimitedPlainDocument(MESSAGE_MAX_CHARACTERS));
 		messageTextArea.getDocument().addDocumentListener(new MyDocumentListener());
+		scrollPane = new JScrollPane(messageTextArea);
 		
 		// Create "Audio Controls:" Label
 		audioLabel = new JLabel("Audio Controls:");
@@ -269,7 +275,7 @@ public class Audio_Steganography_Driver extends JPanel
 		subPanel3.add(playPauseButton);
 		subPanel3.add(stopButton);
 		
-		subPanel4.add(messageTextArea);
+		subPanel4.add(scrollPane);
 		
 		subPanel5.add(passwordLabel);
 		subPanel5.add(passwordField);
@@ -351,13 +357,17 @@ public class Audio_Steganography_Driver extends JPanel
 						resetMessageAndPassword();
 					}
 					// Otherwise the mode is Encrypt and we need to check if we need to release the WAV file's resources
-					else {
-						if(myJWav.isUsingAudioResources()) {
-							myJWav.releaseAudioResources();
-						}
+					if(myJWav.isUsingAudioResources()) {
+						myJWav.releaseAudioResources();
+						System.gc();
 					}
 					
 					myJWav.initialize();
+					
+					if (playPauseButton.getText().equals("<html><b>Pause</b></html>")) {
+						playPauseButton.setText("<html><b>Play</b></html>");
+					}
+					
 					playPauseButton.setEnabled(true);
 					stopButton.setEnabled(true);
 					
@@ -376,8 +386,15 @@ public class Audio_Steganography_Driver extends JPanel
 //					System.out.println("Open file command cancelled by user.");
 				}
 			}
-			// If there was an error initializing the WAV file, mark it
-			// as not valid.
+			catch (WAVException e) {
+				// If there was an error initializing the WAV file, mark it
+				// as not valid.
+				myJWav.setWavFileToNotValid();
+				goButton.setEnabled(false);
+				playPauseButton.setEnabled(false);
+				stopButton.setEnabled(false);
+				displayError("Error: WAV file is not properly formatted for this application.");
+			}
 			catch (Exception e) {
 				// KEEP THIS FOR DEBUGGING
 //				System.out.println("fcButton " + e.getMessage());
@@ -390,6 +407,8 @@ public class Audio_Steganography_Driver extends JPanel
 				stopButton.setEnabled(false);
 				displayError(e.getMessage());
 			}
+			finally {
+			}
 		}
 
 		// Handle when the user wants to create a new file that
@@ -397,8 +416,6 @@ public class Audio_Steganography_Driver extends JPanel
 		else if (eventSource == goButton) {
 			// KEEP THIS FOR DEBUGGING
 //			System.out.println("GO! Button");
-			
-//			currentMode = (String) modeComboBox.getSelectedItem();
 			
 			if (goButtonIsOkToEnable()) {
 				if (currentMode.equals("Encrypt")) {
@@ -420,7 +437,7 @@ public class Audio_Steganography_Driver extends JPanel
 							
 							// Read WAV file's data
 							tempJWav.readWavBytes();
-//								tempJWav.displayWavFileInfo(); // for debug purposes
+//							tempJWav.displayWavFileInfo(); // for debug purposes
 							
 							// Encrypt the message
 							tempJWav.encryptMessage(getGuiMessage(), getGuiPassword());
@@ -441,6 +458,9 @@ public class Audio_Steganography_Driver extends JPanel
 						}
 						
 						tempJWav = null;
+					}
+					catch (WAVException e) {
+						displayError("Error: WAV file is not properly formatted for this application.");
 					}
 					catch (Exception e) {
 						// KEEP THIS FOR DEBUGGING
