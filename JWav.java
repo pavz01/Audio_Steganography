@@ -8,6 +8,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
@@ -55,12 +56,11 @@ public class JWav {
 	// Constructor: JWav()
 	public JWav () {
 		// Set directory that Open File dialogue window will begin
-		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
-//		fc = new JFileChooser();
+//		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
+		fc = new JFileChooser();
 		
 		// Create and use a filter to only accept .wav files
-		FileNameExtensionFilter filter = new FileNameExtensionFilter(
-		        "WAV Files", "wav");
+		FileNameExtensionFilter filter = new FileNameExtensionFilter("WAV Files", "wav");
 		fc.setFileFilter(filter);
 		fc.setAcceptAllFileFilterUsed(false);
 		validWavFile = false;
@@ -77,12 +77,11 @@ public class JWav {
 			throw new Exception("Error: File either does not exist or can not execute");
 		}
 		
-		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
-//		fc = new JFileChooser();
+//		fc = new JFileChooser(new File("C:/Users/Larcade/Documents/Cory/School/CS499a_b/soundFiles"));
+		fc = new JFileChooser();
 		
 		// Create and use a filter to only accept .wav files
-		FileNameExtensionFilter filter = new FileNameExtensionFilter(
-		        "WAV Files", "wav");
+		FileNameExtensionFilter filter = new FileNameExtensionFilter("WAV Files", "wav");
 		fc.setFileFilter(filter);
 		fc.setAcceptAllFileFilterUsed(false);
 		
@@ -117,7 +116,7 @@ public class JWav {
 			throw new Exception("getMessage Error: 'message' is null.");
 		}
 		
-		String stringMessage = new String(message, "UTF-8");
+		String stringMessage = new String(message, "UTF-8").trim();
 		
 		return stringMessage;
 	}
@@ -191,14 +190,18 @@ public class JWav {
 	
 	// Function: releaseAudioResources
 	// Description: Will release the audio resources currently in use
-	public void releaseAudioResources() {
+	public void releaseAudioResources() throws Exception {
+		if (audioClip == null) {
+			throw new Exception("releaseAudioResources Error: audioClip is null");
+		}
+		
 		audioClip.stop();
 		audioClip.close();
 	}
 	
 	// Function: readWavBytes
 	// Description: Will read in the WAV file's data into a byte array
-	public void readWavBytes () throws Exception {
+	public void readWavBytes () throws WAVException, Exception {
 		// KEEP THIS FOR DEBUGGING
 //		System.out.println("Called readWavBytes()");
 		
@@ -284,7 +287,7 @@ public class JWav {
 	// Function: initialize
 	// Description: Will use the user-provided WAV file to setup
 	//              being able to process and use the WAV file.
-	public void initialize () throws Exception {
+	public void initialize () throws WAVException, Exception {
 		// Get the file
 		file = fc.getSelectedFile();
 		
@@ -344,14 +347,28 @@ public class JWav {
 		cipher.init(Cipher.ENCRYPT_MODE,  secretKey);
 		
 		// Add padding to the user-provided message. Ex/ 'hello world' -> 'hello world#####'
-//		for (int i = tempMessage.length(); (i % 16) != 0; i++) {
-//			tempMessage += "#";
+		int numPadding = 0;
 		for (int i = tempMessage.length(); (i % 304) != 0; i++) {
-			tempMessage += " ";
+			numPadding++;
 		}
 
+		byte[] tempMessageBytes = tempMessage.getBytes("UTF-8");
+		
+		int tempSize = tempMessageBytes.length;
+		
+		byte[] newTempMessage = new byte[tempSize + numPadding];
+		
+		for (int i = 0; i < tempSize; i++) {
+			newTempMessage[i] = tempMessageBytes[i];
+		}
+		
+		byte spaceCharacter = (byte) 0x20;
+		for (int i = 0; i < numPadding; i++) {
+			newTempMessage[i + tempSize] = spaceCharacter; // add padding
+		}
+		
 		// Create the encrypted portion. Ex/ [encrypted form of 'hello world#####']
-		byte[] encryptedBytes = cipher.doFinal(tempMessage.getBytes("UTF-8"));
+		byte[] encryptedBytes = cipher.doFinal(newTempMessage);
 		
 		// KEEP THIS FOR DEBUGGING
 //		System.out.println("Encrypted message is: " + new String(encryptedBytes, "UTF-8"));
@@ -453,16 +470,14 @@ public class JWav {
 				maskByte = (byte)((maskByte & 0xff) >>> 1);
 			}
 		}
-		
+
+		// !!!!!!! MIGHT NOT NEED SINCE I'M ALWAYS GATHERING 304 CHARACTERS !!!!!!!
 		// Validate and retrieve the integer form of numCharacters
 		int sizeCharacters = Integer.parseInt(numCharacters);
-		int sizeMessagePadding = 0;
 		
 		// must add '#' padding to message.
-//		while ( (sizeCharacters % 16) != 0 ) {
 		while ( (sizeCharacters % 304) != 0 ) {
 			sizeCharacters++;
-			sizeMessagePadding++;
 		}
 		
 		message = new byte[sizeCharacters];
@@ -516,23 +531,16 @@ public class JWav {
 		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
 		cipher.init(Cipher.DECRYPT_MODE, secretKey);
 		message = cipher.doFinal(message);
-/*
-		int messageLength = message.length;
-		byte[] tempMessage = new byte[messageLength];
-		
-		for (int i = 0; i < messageLength; i++) {
+		byte[] tempMessage = new byte[300];
+		for (int i = 0; i < 300; i++) {
 			tempMessage[i] = message[i];
 		}
 		
-		int count = messageLength - sizeMessagePadding;
-		message = new byte[count];
-		
-		for (int i = 0; i < count; i++) {
-			message[i] = tempMessage[i];
-		}
-*/		
+		message = tempMessage;
+
 		// KEEP THIS FOR DEBUGGING
 //		System.out.println("Decrypted message is: " + new String(message, "UTF-8"));
+//		System.out.println("Decrypted message length is: " + new String(message, "UTF-8").length());
 	}
 	
 	// Function: injectMessage
@@ -709,9 +717,9 @@ public class JWav {
 		
 		// ------ CONSTRUCTORS ------
 		// Constructor: WavHeader(byte[])
-		public WavHeader (byte[] tempAllWavData) throws Exception {
+		public WavHeader (byte[] tempAllWavData) throws WAVException, UnsupportedEncodingException {
 			if (tempAllWavData == null) {
-				throw new Exception("WavHeader Constructor Error: tempAllWavData is empty.");
+				throw new WAVException("WavHeader Constructor Error: tempAllWavData is empty.");
 			}
 			
 			// KEEP THIS FOR DEBUGGING
@@ -728,7 +736,7 @@ public class JWav {
 			}			
 			String tempChunkID = new String(chunkID, "UTF-8");
 			if (!tempChunkID.equals("RIFF")) {
-				throw new Exception("WavHeader Constructor Error: WAV file isn't a 'RIFF' type.");
+				throw new WAVException("WavHeader Constructor Error: WAV file isn't a 'RIFF' type.");
 			}
 
 			// Grab the size of the WAV file
@@ -740,7 +748,7 @@ public class JWav {
 			ByteBuffer tempChunkSize = ByteBuffer.wrap(chunkSize);
 			tempChunkSize.order(ByteOrder.LITTLE_ENDIAN);
 			if (tempChunkSize.getInt() <= 0) {
-				throw new Exception("WavHeader Constructor Error: WAV file size is either 0 or malformed.");
+				throw new WAVException("WavHeader Constructor Error: WAV file size is either 0 or malformed.");
 			}
 			
 			// Grab the format of the file. Should be "WAVE"
@@ -751,7 +759,7 @@ public class JWav {
 			}
 			String tempFormat = new String(format, "UTF-8");
 			if (!tempFormat.equals("WAVE")) {
-				throw new Exception("WavHeader Constructor Error: WAV file isn't a 'WAVE' type.");
+				throw new WAVException("WavHeader Constructor Error: WAV file isn't a 'WAVE' type.");
 			}
 			
 			// Set allHeaderData
@@ -760,48 +768,48 @@ public class JWav {
 			}
 		}
 		
-		public byte[] getAllHeaderBytes() throws Exception {
+		public byte[] getAllHeaderBytes() throws WAVException {
 			if (allHeaderBytes == null) {
-				throw new Exception("WavHeader Constructor Error: allHeaderBytes is null");
+				throw new WAVException("WavHeader Constructor Error: allHeaderBytes is null");
 			}
 			
 			return allHeaderBytes;
 		}
 		
-		public byte[] getChunkID() throws Exception {
+		public byte[] getChunkID() throws WAVException {
 			if (chunkID == null) {
-				throw new Exception("WavHeader Constructor Error: chunkID is null");
+				throw new WAVException("WavHeader Constructor Error: chunkID is null");
 			}
 			
 			return chunkID;
 		}
 		
-		public byte[] getChunkSize() throws Exception {
+		public byte[] getChunkSize() throws WAVException {
 			if (chunkSize == null) {
-				throw new Exception("WavHeader Constructor Error: chunkSize is null");
+				throw new WAVException("WavHeader Constructor Error: chunkSize is null");
 			}
 			
 			return chunkSize;
 		}
 		
-		public byte[] getFormat() throws Exception {
+		public byte[] getFormat() throws WAVException {
 			if (format == null) {
-				throw new Exception("WavHeader Constructor Error: format is null");
+				throw new WAVException("WavHeader Constructor Error: format is null");
 			}
 			
 			return format;
 		}
 		
-		public void display() throws Exception {
+		public void display() throws WAVException, UnsupportedEncodingException {
 			if (chunkID == null) {
-				throw new Exception("WavHeader Constructor Error: chunkID is null");
+				throw new WAVException("WavHeader Constructor Error: chunkID is null");
 			}
 			
 			System.out.println("HEADER CHUNK CONTENTS:");
 			System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
 			
 			if (chunkSize == null) {
-				throw new Exception("WavHeader Constructor Error: chunkSize is null");
+				throw new WAVException("WavHeader Constructor Error: chunkSize is null");
 			}
 			
 			ByteBuffer bb = ByteBuffer.wrap(chunkSize);
@@ -809,7 +817,7 @@ public class JWav {
 			System.out.println("chunkSize is: " + bb.getInt());
 			
 			if (format == null) {
-				throw new Exception("WavHeader Constructor Error: format is null");
+				throw new WAVException("WavHeader Constructor Error: format is null");
 			}
 			
 			System.out.println("format is: " + new String(format, "UTF-8"));
@@ -832,12 +840,12 @@ public class JWav {
 		
 		// ------ CONSTRUCTORS ------
 		// Constructor: WavFormatChunk(byte[])
-		public WavFormatChunk (byte[] tempAllWavData) throws Exception {
+		public WavFormatChunk (byte[] tempAllWavData) throws WAVException, UnsupportedEncodingException {
 			// KEEP THIS FOR DEBUGGING
 //			System.out.println("WavFormatChunk Constructor");
 			
 			if (tempAllWavData == null) {
-				throw new Exception("WavFormatChunk Constructor Error: tempAllWavData is empty.");
+				throw new WAVException("WavFormatChunk Constructor Error: tempAllWavData is empty.");
 			}
 			
 			allFormatBytes = new byte[24];
@@ -850,7 +858,7 @@ public class JWav {
 			}
 			String tempChunkID = new String(chunkID, "UTF-8");
 			if (!tempChunkID.equals("fmt ")) {
-				throw new Exception("WavFormatChunk Constructor Error: WAV file isn't a 'fmt ' type.");
+				throw new WAVException("WavFormatChunk Constructor Error: WAV file isn't a 'fmt ' type.");
 			}
 
 			// Set chunkSize
@@ -862,7 +870,7 @@ public class JWav {
 			ByteBuffer tempChunkSize = ByteBuffer.wrap(chunkSize);
 			tempChunkSize.order(ByteOrder.LITTLE_ENDIAN);
 			if (tempChunkSize.getInt() <= 0) {
-				throw new Exception("WavFormatChunk Constructor Error: WAV format chunk's size is either 0 or malformed.");
+				throw new WAVException("WavFormatChunk Constructor Error: WAV format chunk's size is either 0 or malformed.");
 			}
 			
 			// Set audioFormat
@@ -916,98 +924,98 @@ public class JWav {
 			return allFormatBytes;
 		}
 		
-		public byte[] getChunkID() throws Exception {
+		public byte[] getChunkID() throws WAVException {
 			if (chunkID == null) {
-				throw new Exception("getChunkID Error: chunkID is null");
+				throw new WAVException("getChunkID Error: chunkID is null");
 			}
 			
 			return chunkID;
 		}
 		
-		public byte[] getChunkSize() throws Exception {
+		public byte[] getChunkSize() throws WAVException {
 			if (chunkSize == null) {
-				throw new Exception("getChunkSize Error: chunkSize is null");
+				throw new WAVException("getChunkSize Error: chunkSize is null");
 			}
 			
 			return chunkSize;
 		}
 		
-		public byte[] getAudioFormat() throws Exception {
+		public byte[] getAudioFormat() throws WAVException {
 			if (audioFormat == null) {
-				throw new Exception("getAudioFormat Error: audioFormat is null");
+				throw new WAVException("getAudioFormat Error: audioFormat is null");
 			}
 			
 			return audioFormat;
 		}
 		
-		public byte[] getNumChannels() throws Exception {
+		public byte[] getNumChannels() throws WAVException {
 			if (numChannels == null) {
-				throw new Exception("getNumChannels Error: numChannels is null");
+				throw new WAVException("getNumChannels Error: numChannels is null");
 			}
 			
 			return numChannels;
 		}
 		
-		public byte[] getSampleRate() throws Exception {
+		public byte[] getSampleRate() throws WAVException {
 			if (sampleRate == null) {
-				throw new Exception("getSampleRate Error: sampleRate is null");
+				throw new WAVException("getSampleRate Error: sampleRate is null");
 			}
 			
 			return sampleRate;
 		}
 		
-		public byte[] getByteRate () throws Exception {
+		public byte[] getByteRate () throws WAVException {
 			if (byteRate == null) {
-				throw new Exception("getByteRate Error: byteRate is null");
+				throw new WAVException("getByteRate Error: byteRate is null");
 			}
 			
 			return byteRate;
 		}
 		
-		public byte[] getBlockAlign () throws Exception {
+		public byte[] getBlockAlign () throws WAVException {
 			if (blockAlign == null) {
-				throw new Exception("getBlockAlign Error: blockAlign is null");
+				throw new WAVException("getBlockAlign Error: blockAlign is null");
 			}
 			
 			return blockAlign;
 		}
 		
-		public byte[] getBitsPerSample () throws Exception {
+		public byte[] getBitsPerSample () throws WAVException {
 			if (bitsPerSample == null) {
-				throw new Exception("getBitsPerSample Error: bitsPerSample is null");
+				throw new WAVException("getBitsPerSample Error: bitsPerSample is null");
 			}
 			
 			return bitsPerSample;
 		}
 		
-		public void display () throws Exception {
+		public void display () throws WAVException, UnsupportedEncodingException {
 			System.out.println("FORMAT CHUNK CONTENTS:");
 			
 			if (chunkID == null) {
-				throw new Exception("chunkID is null");
+				throw new WAVException("chunkID is null");
 			}
 			if (audioFormat == null) {
-				throw new Exception("audioFormat is null");
+				throw new WAVException("audioFormat is null");
 			}
 			
 			if (numChannels == null) {
-				throw new Exception("numChannels is null");
+				throw new WAVException("numChannels is null");
 			}
 			
 			if (sampleRate == null) {
-				throw new Exception("sampleRate is null");
+				throw new WAVException("sampleRate is null");
 			}
 			
 			if (byteRate == null) {
-				throw new Exception("byteRate is null");
+				throw new WAVException("byteRate is null");
 			}
 			
 			if (blockAlign == null) {
-				throw new Exception("blockAlign is null");
+				throw new WAVException("blockAlign is null");
 			}
 							
 			if (bitsPerSample == null) {
-				throw new Exception("bitsPerSample is null");
+				throw new WAVException("bitsPerSample is null");
 			}
 							
 			System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
@@ -1043,12 +1051,12 @@ public class JWav {
 		
 		// ------ CONSTRUCTORS ------
 		// Constructor: WavDataChunk(byte[])
-		public WavDataChunk (byte[] tempAllWavData) throws Exception {
+		public WavDataChunk (byte[] tempAllWavData) throws WAVException, UnsupportedEncodingException {
 			// KEEP THIS FOR DEBUGGING
 //			System.out.println("WavDataChunk Constructor");
 			
 			if (tempAllWavData == null) {
-				throw new Exception("WavDataChunk Constructor Error: tempAllWavData is empty.");
+				throw new WAVException("WavDataChunk Constructor Error: tempAllWavData is empty.");
 			}
 			
 			// Set chunkID
@@ -1060,7 +1068,7 @@ public class JWav {
 			// Validate chunkID
 			String tempChunkID = new String(chunkID, "UTF-8");
 			if (!tempChunkID.equals("data")) {
-				throw new Exception("WavDataChunk Constructor Error: chunkID is not 'data'.");
+				throw new WAVException("WavDataChunk Constructor Error: chunkID is not 'data'.");
 			}
 
 			// Set chunkSize
@@ -1074,7 +1082,7 @@ public class JWav {
 			
 			// Make sure chunkSize is right
 			if (numDataBytes != (tempAllWavData.length - 44)) {
-				throw new Exception("WavDataChunk Constructor Error: Aaaaah! chunkSize isn't what it should be!");
+				throw new WAVException("WavDataChunk Constructor Error: Aaaaah! chunkSize isn't what it should be!");
 			}
 			
 			// Set data
@@ -1091,41 +1099,41 @@ public class JWav {
 			}
 		}
 		
-		public byte[] getAllDataChunkBytes() throws Exception {
+		public byte[] getAllDataChunkBytes() throws WAVException {
 			if (allDataChunkBytes == null) {
-				throw new Exception("Error: allDataChunkBytes is null");
+				throw new WAVException("Error: allDataChunkBytes is null");
 			}
 			
 			return allDataChunkBytes;
 		}
 		
-		public byte[] getChunkID() throws Exception {
+		public byte[] getChunkID() throws WAVException {
 			if (chunkID == null) {
-				throw new Exception("getChunkID Error: chunkID is null");
+				throw new WAVException("getChunkID Error: chunkID is null");
 			}
 			
 			return chunkID;
 		}
 		
-		public byte[] getChunkSize() throws Exception {
+		public byte[] getChunkSize() throws WAVException {
 			if (chunkSize == null) {
-				throw new Exception("getChunkSize Error: chunkSize is null");
+				throw new WAVException("getChunkSize Error: chunkSize is null");
 			}
 			
 			return chunkSize;
 		}
 		
-		public byte[] getData() throws Exception {
+		public byte[] getData() throws WAVException {
 			if (data == null) {
-				throw new Exception("getData Error: data is null");
+				throw new WAVException("getData Error: data is null");
 			}
 			
 			return data;
 		}
 		
-		public void setData(byte[] tempData) throws Exception {
+		public void setData(byte[] tempData) throws WAVException {
 			if (tempData == null) {
-				throw new Exception("setData Error: tempData is null");
+				throw new WAVException("setData Error: tempData is null");
 			}
 			
 			int length = tempData.length;
@@ -1135,21 +1143,31 @@ public class JWav {
 			}
 		}
 		
-		public void display () throws Exception {
+		public void display () throws WAVException, UnsupportedEncodingException {
 			if (chunkID == null) {
-				throw new Exception("chunkID is null");
+				throw new WAVException("chunkID is null");
 			}
 			
 			System.out.println("DATA CHUNK CONTENTS:");
 			System.out.println("chunkID is: " + new String(chunkID, "UTF-8"));
 			
 			if (chunkSize == null) {
-				throw new Exception("chunkSize is null");
+				throw new WAVException("chunkSize is null");
 			}
 			
 			ByteBuffer bb = ByteBuffer.wrap(chunkSize);
 			bb.order(ByteOrder.LITTLE_ENDIAN);
 			System.out.println("chunkSize is: " + bb.getInt());
+		}
+	}
+	
+	public class WAVException extends Exception {
+		public WAVException() {
+			
+		}
+		
+		public WAVException(String message) {
+			super(message);
 		}
 	}
 }
